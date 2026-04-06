@@ -246,6 +246,18 @@ def kb_admins_inline():
 def kb_cancel_inline():
     return InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="cancel")]])
 
+def kb_choose_position(pid=None):
+    """لوحة اختيار موضع الإضافة."""
+    ctx = "r" if pid is None else str(pid)
+    btns = get_buttons(pid)
+    rows = []
+    rows.append([InlineKeyboardButton("⬆️ في البداية", callback_data=f"pos_first_{ctx}")])
+    for b in btns:
+        rows.append([InlineKeyboardButton(f"↳ بعد  {b['label']}", callback_data=f"pos_after_{b['id']}")])
+    rows.append([InlineKeyboardButton("⬇️ في النهاية", callback_data=f"pos_end_{ctx}")])
+    rows.append([InlineKeyboardButton("❌ إلغاء", callback_data="cancel")])
+    return InlineKeyboardMarkup(rows)
+
 # ── مساعد اللوحة الثابتة ─────────────────────────────────────────
 async def set_panel(ctx, chat_id, text, markup=None):
     pid = ctx.user_data.get("panel_id")
@@ -410,8 +422,14 @@ async def on_message(update: Update, ctx):
     # ── أزرار المشرف ──────────────────────────────────────────────
     if is_admin(uid):
         if text == BTN_ADD:
-            ctx.user_data["state"] = "wait_type"; ctx.user_data["add_pid"] = pid
-            await m.reply_text("اختر نوع الزر:", reply_markup=build_type_kb())
+            ctx.user_data["add_pid"] = pid
+            existing = get_buttons(pid)
+            if existing:
+                await set_panel(ctx, chat_id, "📍 اختر موضع الإضافة:", kb_choose_position(pid))
+            else:
+                ctx.user_data["state"] = "wait_type"
+                ctx.user_data.pop("add_after", None); ctx.user_data.pop("add_position", None)
+                await m.reply_text("اختر نوع الزر:", reply_markup=build_type_kb())
             return
         if text == BTN_MANAGE:
             await set_panel(ctx, chat_id, "⚙️ *إدارة الأزرار*:", kb_manage(pid))
@@ -498,6 +516,30 @@ async def cb_manage(update: Update, ctx):
         del_btn(bid)
         await q.edit_message_text("⚙️ *إدارة الأزرار*:", parse_mode="Markdown",
                                   reply_markup=kb_manage(ep)); return
+
+    # ── اختيار موضع الإضافة من لوح الإضافة ──────────────────────
+    if d.startswith("pos_first_"):
+        pctx = d[10:]; ep = None if pctx == "r" else int(pctx)
+        ctx.user_data["state"] = "wait_type"
+        ctx.user_data["add_pid"] = ep
+        ctx.user_data["add_after"] = None
+        ctx.user_data["add_position"] = "first"
+        await q.message.reply_text("اختر نوع الزر:", reply_markup=build_type_kb()); return
+
+    if d.startswith("pos_after_"):
+        after_bid = int(d[10:]); b = get_btn(after_bid)
+        ctx.user_data["state"] = "wait_type"
+        ctx.user_data["add_pid"] = b["parent_id"] if b else None
+        ctx.user_data["add_after"] = after_bid
+        ctx.user_data.pop("add_position", None)
+        await q.message.reply_text("اختر نوع الزر:", reply_markup=build_type_kb()); return
+
+    if d.startswith("pos_end_"):
+        pctx = d[8:]; ep = None if pctx == "r" else int(pctx)
+        ctx.user_data["state"] = "wait_type"
+        ctx.user_data["add_pid"] = ep
+        ctx.user_data.pop("add_after", None); ctx.user_data.pop("add_position", None)
+        await q.message.reply_text("اختر نوع الزر:", reply_markup=build_type_kb()); return
 
     # ── إضافة من لوحة الإدارة (في النهاية) ──────────────────────
     if d.startswith("add_after_"):
