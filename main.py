@@ -399,7 +399,7 @@ def kb_edit_menu_btn(bid):
     return InlineKeyboardMarkup(rows)
 
 def kb_content_panel(bid):
-    """لوحة إدارة محتوى الزر."""
+    """لوحة إدارة محتوى الزر (كاملة)."""
     items = get_items(bid)
     b = get_btn(bid)
     rows = []
@@ -410,6 +410,30 @@ def kb_content_panel(bid):
     rows.append([InlineKeyboardButton("🗑 حذف الزر",    callback_data=f"x_{bid}")])
     pid = b["parent_id"] if b else None
     rows.append([InlineKeyboardButton("🔙 رجوع", callback_data="m_r" if pid is None else f"m_{pid}")])
+    return InlineKeyboardMarkup(rows)
+
+def kb_menu_quick(bid):
+    """خيارات سريعة لزر قائمة عند الضغط من الكيبورد — بدون إضافة أو رجوع."""
+    b = get_btn(bid)
+    pid = b["parent_id"] if b else None
+    siblings = get_buttons(pid)
+    rows = [
+        [InlineKeyboardButton("✏️ تغيير الاسم", callback_data=f"el_{bid}")],
+        [InlineKeyboardButton("🗑 حذف",          callback_data=f"x_{bid}")],
+    ]
+    if len(siblings) >= 2:
+        rows.append([InlineKeyboardButton("🔀 تبديل الموضع", callback_data=f"swp_start_{'r' if pid is None else str(pid)}")])
+    return InlineKeyboardMarkup(rows)
+
+def kb_content_quick(bid):
+    """خيارات سريعة لزر محتوى عند الضغط من الكيبورد — بدون رجوع."""
+    items = get_items(bid)
+    rows = []
+    if items:
+        rows.append([InlineKeyboardButton("👁 عرض المحتوى", callback_data=f"ci_view_{bid}")])
+    rows.append([InlineKeyboardButton("➕ إضافة محتوى", callback_data=f"ci_add_{bid}")])
+    rows.append([InlineKeyboardButton("✏️ تغيير الاسم", callback_data=f"el_{bid}")])
+    rows.append([InlineKeyboardButton("🗑 حذف",          callback_data=f"x_{bid}")])
     return InlineKeyboardMarkup(rows)
 
 def kb_item_actions(iid):
@@ -687,14 +711,14 @@ async def on_message(update: Update, ctx):
         ctx.user_data["pid"] = b["id"]
         await m.reply_text(f"📂 {b['label']}", reply_markup=build_kb(uid, b["id"]))
         if is_admin(uid):
-            await set_panel(ctx, chat_id, f"📂 *{b['label']}*", kb_manage(b["id"]))
+            await set_panel(ctx, chat_id, f"📂 *{b['label']}*", kb_menu_quick(b["id"]))
 
     elif b["type"] == "content":
         if is_admin(uid):
             items = get_items(b["id"])
             await set_panel(ctx, chat_id,
                             f"📄 *{b['label']}*\n_{len(items)} عنصر_",
-                            kb_content_panel(b["id"]))
+                            kb_content_quick(b["id"]))
         else:
             await send_items(m, b["id"])
 
