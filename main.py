@@ -709,7 +709,7 @@ async def on_message(update: Update, ctx):
     b = matched
     if b["type"] == "menu":
         ctx.user_data["pid"] = b["id"]
-        await m.reply_text(f"📂 {b['label']}", reply_markup=build_kb(uid, b["id"]))
+        await m.reply_text(".", reply_markup=build_kb(uid, b["id"]))
         if is_admin(uid):
             await set_panel(ctx, chat_id, f"📂 *{b['label']}*", kb_menu_quick(b["id"]))
 
