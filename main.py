@@ -140,6 +140,11 @@ def init_db():
         except Exception:
             pass
         try:
+            c.execute("ALTER TABLE user_stats ADD COLUMN subscribed_at INTEGER DEFAULT 0")
+            c.commit()
+        except Exception:
+            pass
+        try:
             c.execute("ALTER TABLE user_stats ADD COLUMN first_seen INTEGER DEFAULT 0")
             c.commit()
         except Exception:
@@ -287,11 +292,12 @@ def clear_pending_notif(uid):
     c.commit(); c.close()
 
 def record_channel_subscription(uid):
+    import time as _time
     _ensure_user_stats(uid)
     c = db()
     already = c.execute("SELECT subscribed_via_notif FROM user_stats WHERE user_id=?", (uid,)).fetchone()
     if already and already[0] == 0:
-        c.execute("UPDATE user_stats SET subscribed_via_notif=1 WHERE user_id=?", (uid,))
+        c.execute("UPDATE user_stats SET subscribed_via_notif=1, subscribed_at=? WHERE user_id=?", (int(_time.time()), uid))
         c.commit()
     c.close()
 
@@ -844,7 +850,14 @@ def get_stats() -> str:
         retained_30d = c.execute("SELECT COUNT(*) FROM user_stats WHERE first_seen>0 AND first_seen<=? AND last_active>=?", (ts_30d, ts_30d)).fetchone()[0]
 
         # ── القناة ───────────────────────────────────────
-        subscribed_via_notif = c.execute("SELECT COUNT(*) FROM user_stats WHERE subscribed_via_notif=1").fetchone()[0]
+        import time as _time2
+        ts_today_start    = int(datetime.datetime.utcnow().replace(hour=0,minute=0,second=0,microsecond=0).timestamp())
+        ts_yest_start     = ts_today_start - 86400
+        ts_month_start    = int((_time2.time()) - 30 * 86400)
+        subscribed_via_notif  = c.execute("SELECT COUNT(*) FROM user_stats WHERE subscribed_via_notif=1").fetchone()[0]
+        sub_today             = c.execute("SELECT COUNT(*) FROM user_stats WHERE subscribed_at>=?", (ts_today_start,)).fetchone()[0]
+        sub_yesterday         = c.execute("SELECT COUNT(*) FROM user_stats WHERE subscribed_at>=? AND subscribed_at<?", (ts_yest_start, ts_today_start)).fetchone()[0]
+        sub_month             = c.execute("SELECT COUNT(*) FROM user_stats WHERE subscribed_at>=?", (ts_month_start,)).fetchone()[0]
 
         # ── البوت ────────────────────────────────────────
         total_btns = c.execute("SELECT COUNT(*) FROM buttons").fetchone()[0]
@@ -865,8 +878,10 @@ def get_stats() -> str:
         f"  ├ جدد الأمس: `{new_yesterday}`\n"
         f"  └ جدد آخر 30 يوم: `{new_month}`\n\n"
         "📢 *الاشتراك بالقناة*\n"
-        f"  ├ اشتركوا عبر رسالة الاشتراك: `{subscribed_via_notif}`\n"
-        f"  └ نسبة الاشتراك: `{sub_rate}`\n\n"
+        f"  ├ إجمالي المشتركين عبر الرسالة: `{subscribed_via_notif}` ({sub_rate})\n"
+        f"  ├ اليوم: `{sub_today}`\n"
+        f"  ├ الأمس: `{sub_yesterday}`\n"
+        f"  └ آخر 30 يوم: `{sub_month}`\n\n"
         "💬 *الرسائل*\n"
         f"  ├ اليوم: `{msg_today}`\n"
         f"  ├ الأمس: `{msg_yesterday}`\n"
