@@ -159,6 +159,11 @@ def init_db():
             c.commit()
         except Exception:
             pass
+        try:
+            c.execute("ALTER TABLE user_stats ADD COLUMN ratings_hidden INTEGER DEFAULT 0")
+            c.commit()
+        except Exception:
+            pass
         c.execute("""
             CREATE TABLE IF NOT EXISTS daily_stats (
                 date      TEXT PRIMARY KEY,
@@ -398,6 +403,19 @@ def record_channel_subscription(uid):
 def get_pending_notif(uid):
     s = get_user_stats(uid)
     return s.get("pending_notif_bid", 0) or 0
+
+def get_user_ratings_hidden(uid):
+    s = get_user_stats(uid)
+    return bool(s.get("ratings_hidden", 0) or 0)
+
+def toggle_user_ratings_hidden(uid):
+    _ensure_user_stats(uid)
+    current = get_user_ratings_hidden(uid)
+    new_val = 0 if current else 1
+    c = db()
+    c.execute("UPDATE user_stats SET ratings_hidden=? WHERE user_id=?", (new_val, uid))
+    c.commit(); c.close()
+    return bool(new_val)
 
 async def is_subscribed(bot, uid: int):
     """
@@ -719,6 +737,28 @@ def kb_donation_stars(uid=None):
     rows.append([InlineKeyboardButton("❌ إغلاق", callback_data="don_close")])
     return InlineKeyboardMarkup(rows)
 
+def toggle_ratings_text(uid: int) -> str:
+    hidden = get_user_ratings_hidden(uid)
+    status = "⭕ مخفية حالياً" if hidden else "✅ ظاهرة حالياً"
+    desc = (
+        "عند إخفاء التقييمات لن تظهر لك رسائل التقييم بعد استلام الملفات."
+        if not hidden else
+        "عند تفعيل التقييمات ستظهر لك رسائل التقييم بعد استلام الملفات."
+    )
+    return (
+        f"⭐ *إعدادات التقييمات*\n\n"
+        f"الحالة: {status}\n\n"
+        f"{desc}"
+    )
+
+def kb_toggle_ratings(uid: int):
+    hidden = get_user_ratings_hidden(uid)
+    toggle_label = "✅ تفعيل التقييمات" if hidden else "🚫 إخفاء التقييمات"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(toggle_label, callback_data="rating_toggle")],
+        [InlineKeyboardButton("❌ إغلاق", callback_data="rating_close")],
+    ])
+
 async def send_stars_invoice(bot, chat_id: int, stars: int):
     await bot.send_invoice(
         chat_id=chat_id,
@@ -758,6 +798,17 @@ def _setup_pomodoro_feature():
         c.execute(
             "INSERT INTO buttons(parent_id,type,label,ord,new_row,special_action) VALUES(?,?,?,?,?,?)",
             (421, "special", "💝 ادعمنا بالنجوم", len(ids)+1, 1, "donate_stars")
+        )
+    existing_toggle_ratings = c.execute(
+        "SELECT id FROM buttons WHERE parent_id=421 AND special_action='toggle_ratings' LIMIT 1"
+    ).fetchone()
+    if not existing_toggle_ratings:
+        ids = [r[0] for r in c.execute(
+            "SELECT id FROM buttons WHERE parent_id=421 ORDER BY ord,id"
+        ).fetchall()]
+        c.execute(
+            "INSERT INTO buttons(parent_id,type,label,ord,new_row,special_action) VALUES(?,?,?,?,?,?)",
+            (421, "special", "⭐ التقييمات", len(ids)+1, 1, "toggle_ratings")
         )
     c.commit(); c.close()
 
@@ -1615,9 +1666,10 @@ async def send_items(m, bid, uid=None, bot=None):
     cap_btns = get_caption_buttons() if not no_btn_cap else []
     link_markup = build_caption_btn_markup(cap_btns)
     unified = (b.get("unified_rating", 0) or 0) if b else 0
+    ratings_hidden = get_user_ratings_hidden(uid) if uid and not is_admin(uid) else False
     for item in items:
         sent = await send_file_item(m, item, extra_caption=extra_cap, reply_markup=link_markup)
-        if sent and uid and not is_admin(uid) and not unified:
+        if sent and uid and not is_admin(uid) and not unified and not ratings_hidden:
             await send_item_rating_message(m, item, uid=uid)
 
     # إرسال عبارة تحفيزية عشوائية بعد المحتوى (للمستخدمين فقط)
@@ -1629,8 +1681,8 @@ async def send_items(m, bid, uid=None, bot=None):
             except Exception:
                 await m.reply_text(phrase)
 
-    # إرسال تقييم موحد واحد في الأسفل إذا كان توحيد التقييم مفعّلاً
-    if uid and not is_admin(uid) and unified:
+    # إرسال تقييم موحد واحد في الأسفل إذا كان توحيد التقييم مفعّلاً وغير مخفي
+    if uid and not is_admin(uid) and unified and not ratings_hidden:
         await send_btn_unified_rating_message(m, bid, uid=uid)
 
 # ── /start ────────────────────────────────────────────────────────
@@ -2280,6 +2332,16 @@ async def on_message(update: Update, ctx):
                 await set_panel(ctx, chat_id,
                                 f"⭐ *{b['label']}* (#{b['id']})\n_زر تبرع بالنجوم_",
                                 kb_special_quick(b["id"]))
+        elif action == "toggle_ratings":
+            await m.reply_text(
+                toggle_ratings_text(uid),
+                parse_mode="Markdown",
+                reply_markup=kb_toggle_ratings(uid)
+            )
+            if is_admin(uid):
+                await set_panel(ctx, chat_id,
+                                f"⭐ *{b['label']}* (#{b['id']})\n_زر إعدادات التقييمات_",
+                                kb_special_quick(b["id"]))
         else:
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
@@ -2482,6 +2544,28 @@ async def cb_manage(update: Update, ctx):
             return
 
         if d == "don_close":
+            try:
+                await q.message.delete()
+            except Exception:
+                await q.edit_message_text("✅")
+            return
+
+        return
+
+    # ── معالجات إعدادات التقييمات (لجميع المستخدمين) ────────────────
+    if d.startswith("rating_"):
+        await q.answer()
+
+        if d == "rating_toggle":
+            toggle_user_ratings_hidden(uid)
+            await q.edit_message_text(
+                toggle_ratings_text(uid),
+                parse_mode="Markdown",
+                reply_markup=kb_toggle_ratings(uid)
+            )
+            return
+
+        if d == "rating_close":
             try:
                 await q.message.delete()
             except Exception:
