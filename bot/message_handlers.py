@@ -661,7 +661,7 @@ async def on_message(update: Update, ctx):
                             f"📊 *{b['label']}*\n_{len(questions)} سؤال_",
                             kb_quiz_quick(b["id"]))
         else:
-            await send_quiz(m, b["id"], uid=uid, bot=ctx.bot)
+            await send_quiz_ready(m, b["id"])
 
     elif b["type"] == "special":
         action = b.get("special_action")

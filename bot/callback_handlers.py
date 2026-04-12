@@ -361,6 +361,49 @@ async def cb_manage(update: Update, ctx):
 
         return
 
+    if d.startswith("quiz_"):
+        chat_id = q.message.chat_id
+        if d.startswith("quiz_start_"):
+            bid = int(d[len("quiz_start_"):])
+            await q.answer()
+            import asyncio
+            for n in ("3", "2", "1"):
+                try:
+                    await q.edit_message_text(f"⏳ يبدأ الكويز خلال *{n}*", parse_mode="Markdown")
+                except Exception:
+                    pass
+                await asyncio.sleep(1)
+            try:
+                await q.edit_message_text("🚀 انطلق!")
+            except Exception:
+                pass
+            await send_quiz(q.message, bid, uid=uid, bot=ctx.bot)
+            return
+
+        if d.startswith("quiz_next_"):
+            parts = d[len("quiz_next_"):].split("_")
+            if len(parts) < 2:
+                await q.answer("⚠️ زر غير صالح.", show_alert=True)
+                return
+            bid = int(parts[0])
+            current_qid = int(parts[1])
+            await q.answer()
+            try:
+                await q.edit_message_text("⏭️ جاري إرسال السؤال التالي...")
+            except Exception:
+                pass
+            b = get_btn(bid)
+            random_q = (b.get("random_quiz", 0) or 0) if b else 0
+            if random_q:
+                question = get_next_random_question(bid, uid)
+            else:
+                question = get_next_ordered_quiz_question(bid, current_qid)
+            await send_quiz_question(q.message, bid, question, uid=uid, random_q=random_q)
+            return
+
+        await q.answer()
+        return
+
     await q.answer()
     if not is_admin(uid): return
     chat_id = q.message.chat_id

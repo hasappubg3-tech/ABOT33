@@ -212,8 +212,33 @@ async def send_quiz(m, bid, uid=None, bot=None):
     else:
         questions = get_quiz_questions(bid)
         question = questions[0] if questions else None
+    await send_quiz_question(m, bid, question, uid=uid, random_q=random_q)
+
+async def send_quiz_ready(m, bid):
+    b = get_btn(bid)
+    title = b["label"] if b else "الكويز"
+    await m.reply_text(
+        f"📊 *{title}*\n\nهل أنت مستعد لبدء الكويز؟",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ نعم، مستعد", callback_data=f"quiz_start_{bid}")]
+        ])
+    )
+
+def get_next_ordered_quiz_question(bid, current_qid=None):
+    questions = get_quiz_questions(bid)
+    if not questions:
+        return None
+    if current_qid is None:
+        return questions[0]
+    for i, q in enumerate(questions):
+        if q["id"] == current_qid:
+            return questions[i + 1] if i + 1 < len(questions) else None
+    return questions[0]
+
+async def send_quiz_question(m, bid, question, uid=None, random_q=0):
     if not question:
-        await m.reply_text("📭 لا يوجد أسئلة بعد.")
+        await m.reply_text("🎉 انتهت أسئلة الكويز. أحسنت!")
         return
     opts = get_quiz_options(question["id"])
     if len(opts) < 2:
@@ -233,3 +258,17 @@ async def send_quiz(m, bid, uid=None, bot=None):
     )
     if uid and random_q:
         log_question_sent(uid, question["id"])
+    next_question = None
+    if random_q:
+        all_questions = get_quiz_questions(bid)
+        if len(all_questions) > 1:
+            next_question = True
+    else:
+        next_question = get_next_ordered_quiz_question(bid, question["id"])
+    if next_question:
+        await m.reply_text(
+            "بعد ما تخلص هذا السؤال اضغط الزر للانتقال للسؤال التالي.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➡️ السؤال التالي", callback_data=f"quiz_next_{bid}_{question['id']}")]
+            ])
+        )
