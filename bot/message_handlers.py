@@ -85,13 +85,18 @@ async def on_message(update: Update, ctx):
             admins = get_file_request_admins()
             if not admins:
                 admins = [{"user_id": a["id"], "username": a.get("username")} for a in all_admins()]
+            reply_btn = InlineKeyboardMarkup([[
+                InlineKeyboardButton("↩️ رد على المستخدم", callback_data=f"freply_{uid}")
+            ]])
             for admin in admins:
                 try:
-                    await ctx.bot.copy_message(
+                    copied = await ctx.bot.copy_message(
                         chat_id=admin["user_id"],
                         from_chat_id=chat_id,
-                        message_id=m.message_id
+                        message_id=m.message_id,
+                        reply_markup=reply_btn
                     )
+                    save_file_reply_session(admin["user_id"], copied.message_id, uid)
                 except Exception as e:
                     logging.warning(f"active convo forward to admin failed: {e}")
             return
