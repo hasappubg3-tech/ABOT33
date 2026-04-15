@@ -459,6 +459,13 @@ def top_users_text() -> str:
     rows = db().execute(query, admin_ids if admin_ids else []).fetchall()
     if not rows:
         return "🏆 *أبرز المستخدمين*\n\nلا توجد بيانات بعد."
+    def _safe(text):
+        if not text:
+            return ""
+        for ch in ["_", "*", "`", "["]:
+            text = text.replace(ch, f"\\{ch}")
+        return text
+
     medals = {1: "🥇", 2: "🥈", 3: "🥉"}
     lines = ["🏆 *أبرز المستخدمين نشاطاً*\n"]
     for i, row in enumerate(rows, start=1):
@@ -466,9 +473,9 @@ def top_users_text() -> str:
         username = row["username"]
         first_name = row["first_name"]
         if username:
-            display = f"@{username}"
+            display = f"@{_safe(username)}"
         elif first_name:
-            display = first_name
+            display = _safe(first_name)
         else:
             display = f"مستخدم {i}"
         lines.append(f"{medal} {display}")
