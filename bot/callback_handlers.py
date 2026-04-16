@@ -551,16 +551,20 @@ async def cb_manage(update: Update, ctx):
         next_idx = current_idx + 1
         if next_idx >= session["total"]:
             ctx.user_data.pop(_exam_session_key(bid), None)
+            parent = (get_btn(bid) or {}).get("parent_id")
+            reply_markup = None
+            if parent and (get_btn(parent) or {}).get("type") == "exam_group":
+                reply_markup = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("↩️ الرجوع لقائمة الامتحانات", callback_data=f"exg_stats_{parent}")
+                ]])
             await q.message.reply_text(
                 "🎉 *أنهيت هذا الموضوع!*\n\n"
                 f"🧩 الأسئلة: *{progress.get('answered')}/{progress.get('total')}*\n"
                 f"✅ عرفت: *{progress.get('correct')}*\n"
                 f"❌ لم تعرف: *{progress.get('wrong')}*",
-                parse_mode="Markdown"
+                parse_mode="Markdown",
+                reply_markup=reply_markup
             )
-            parent = (get_btn(bid) or {}).get("parent_id")
-            if parent and (get_btn(parent) or {}).get("type") == "exam_group":
-                await q.message.reply_text(exam_group_text(parent, uid), parse_mode="Markdown", reply_markup=kb_exam_group_user(parent, uid))
             return
         next_qid = session["q_ids"][next_idx]
         await send_exam_question_to_user(q.message, bid, next_qid, next_idx + 1, session["total"], bot=ctx.bot)
