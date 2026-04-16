@@ -391,6 +391,13 @@ async def on_message(update: Update, ctx):
             channel_msg_id = None
             if fid:
                 channel_msg_id = await upload_to_channel(ctx.bot, fid, t, content)
+                if get_storage_channel_id() and not channel_msg_id:
+                    await m.reply_text(
+                        "⚠️ لم يتم حفظ الملف.\n\n"
+                        "السبب: تعذر رفعه إلى قناة التخزين. حتى تبقى الملفات تعمل بعد تغيير التوكن، يجب أن يكون البوت أدمن في قناة التخزين وأن يكون آيدي القناة صحيحاً.",
+                        reply_markup=kb_add_content_active(bid)
+                    )
+                    return
             add_item(bid, t, content, fid, None, channel_msg_id)
             b = get_btn(bid)
             items = get_items(bid)
@@ -398,11 +405,8 @@ async def on_message(update: Update, ctx):
                             f"📄 *{b['label']}*\n_{len(items)} عنصر_",
                             kb_content_panel(bid))
             await clear_add_content_control(ctx, chat_id)
-            storage_note = ""
-            if fid and get_storage_channel_id() and not channel_msg_id:
-                storage_note = "\n\n⚠️ تم حفظ الملف داخل البوت، لكن لم أستطع رفعه لقناة التخزين. تأكد أن البوت أدمن في قناة التخزين."
             control_msg = await m.reply_text(
-                f"✅ تمت الإضافة. العدد الحالي: *{len(items)}*{storage_note}\n\n"
+                f"✅ تمت الإضافة. العدد الحالي: *{len(items)}*\n\n"
                 "أرسل محتوى آخر، أو اضغط ✅ انتهاء الإضافة.",
                 parse_mode="Markdown",
                 reply_markup=kb_add_content_active(bid)
