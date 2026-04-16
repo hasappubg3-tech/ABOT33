@@ -15,6 +15,70 @@ async def cmd_start(update: Update, ctx):
 async def cmd_myid(update: Update, ctx):
     await update.message.reply_text(f"🆔 `{update.effective_user.id}`", parse_mode="Markdown")
 
+async def cmd_storage_status(update: Update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    ch = get_storage_channel_id()
+    summary = get_storage_summary()
+    access_text = "غير مفحوص"
+    if ch:
+        try:
+            me = await ctx.bot.get_me()
+            member = await ctx.bot.get_chat_member(ch, me.id)
+            access_text = f"متصل بالقناة — صلاحية البوت: {member.status}"
+        except Exception as e:
+            access_text = f"تعذر الوصول للقناة: {e}"
+    else:
+        access_text = "لم يتم تحديد قناة تخزين"
+    await update.message.reply_text(
+        "📦 *حالة تخزين الملفات*\n\n"
+        f"قناة التخزين: `{ch or 'غير محددة'}`\n"
+        f"الفحص: {access_text}\n\n"
+        f"كل الملفات: *{summary.get('total_files') or 0}*\n"
+        f"محفوظة بالقناة: *{summary.get('in_channel') or 0}*\n"
+        f"ناقصة من القناة: *{summary.get('missing_channel') or 0}*\n"
+        f"يمكن إصلاحها من ملفات محلية: *{summary.get('repairable_local') or 0}*\n"
+        f"يمكن تجربتها عبر file_id الحالي: *{summary.get('repairable_file_id') or 0}*\n\n"
+        "لإصلاح الناقص أرسل /repair_storage",
+        parse_mode="Markdown"
+    )
+
+async def cmd_repair_storage(update: Update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    ch = get_storage_channel_id()
+    if not ch:
+        await update.message.reply_text("⚠️ لم يتم تحديد قناة التخزين.")
+        return
+    items = get_items_missing_channel()
+    if not items:
+        await update.message.reply_text("✅ كل الملفات محفوظة في قناة التخزين.")
+        return
+    status_msg = await update.message.reply_text(f"🔄 جاري إصلاح {len(items)} ملف ناقص...")
+    fixed = 0
+    failed = []
+    for item in items:
+        channel_msg_id = await upload_item_to_channel(ctx.bot, item)
+        if channel_msg_id:
+            upd_item_channel_msg_id(item["id"], channel_msg_id)
+            fixed += 1
+        else:
+            failed.append(item["id"])
+    text = (
+        "📦 *نتيجة إصلاح التخزين*\n\n"
+        f"✅ تم إصلاح: *{fixed}*\n"
+        f"⚠️ بقي بدون إصلاح: *{len(failed)}*"
+    )
+    if failed:
+        sample = ", ".join(str(i) for i in failed[:30])
+        text += (
+            f"\n\nالعناصر المتبقية: `{sample}`\n"
+            "إذا كانت هذه الملفات أُضيفت بالتوكن القديم ولا توجد لها نسخة محلية، شغّل البوت مؤقتاً بالتوكن القديم ثم أرسل /repair_storage حتى تُرفع للقناة."
+        )
+    await status_msg.edit_text(text, parse_mode="Markdown")
+
 # ── معالج الرسائل الرئيسي ─────────────────────────────────────────
 async def on_message(update: Update, ctx):
     m = update.message
@@ -334,8 +398,11 @@ async def on_message(update: Update, ctx):
                             f"📄 *{b['label']}*\n_{len(items)} عنصر_",
                             kb_content_panel(bid))
             await clear_add_content_control(ctx, chat_id)
+            storage_note = ""
+            if fid and get_storage_channel_id() and not channel_msg_id:
+                storage_note = "\n\n⚠️ تم حفظ الملف داخل البوت، لكن لم أستطع رفعه لقناة التخزين. تأكد أن البوت أدمن في قناة التخزين."
             control_msg = await m.reply_text(
-                f"✅ تمت الإضافة. العدد الحالي: *{len(items)}*\n\n"
+                f"✅ تمت الإضافة. العدد الحالي: *{len(items)}*{storage_note}\n\n"
                 "أرسل محتوى آخر، أو اضغط ✅ انتهاء الإضافة.",
                 parse_mode="Markdown",
                 reply_markup=kb_add_content_active(bid)

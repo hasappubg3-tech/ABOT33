@@ -311,7 +311,12 @@ def get_global_caption():
     return get_setting("global_caption", "")
 
 def get_storage_channel_id():
-    return STORAGE_CHANNEL_ID
+    ch = (STORAGE_CHANNEL_ID or "").strip()
+    if not ch:
+        return None
+    if ch.lstrip("-").isdigit():
+        return int(ch)
+    return ch
 
 def get_buttons(pid=None):
     if pid is None:
@@ -550,6 +555,32 @@ def swap_btns(bid1, bid2):
 def get_items(bid):
     return [dict(r) for r in db().execute(
         "SELECT * FROM content_items WHERE button_id=? ORDER BY ord,id", (bid,)).fetchall()]
+
+def get_storage_summary():
+    row = db().execute("""
+        SELECT
+            COUNT(*) AS total_files,
+            SUM(CASE WHEN channel_msg_id IS NOT NULL AND channel_msg_id != 0 THEN 1 ELSE 0 END) AS in_channel,
+            SUM(CASE WHEN channel_msg_id IS NULL OR channel_msg_id = 0 THEN 1 ELSE 0 END) AS missing_channel,
+            SUM(CASE WHEN (channel_msg_id IS NULL OR channel_msg_id = 0) AND local_path IS NOT NULL AND local_path != '' THEN 1 ELSE 0 END) AS repairable_local,
+            SUM(CASE WHEN (channel_msg_id IS NULL OR channel_msg_id = 0) AND (local_path IS NULL OR local_path = '') AND file_id IS NOT NULL AND file_id != '' THEN 1 ELSE 0 END) AS repairable_file_id
+        FROM content_items
+        WHERE type != 'text'
+    """).fetchone()
+    return dict(row) if row else {
+        "total_files": 0,
+        "in_channel": 0,
+        "missing_channel": 0,
+        "repairable_local": 0,
+        "repairable_file_id": 0,
+    }
+
+def get_items_missing_channel():
+    return [dict(r) for r in db().execute("""
+        SELECT * FROM content_items
+        WHERE type != 'text' AND (channel_msg_id IS NULL OR channel_msg_id = 0)
+        ORDER BY id
+    """).fetchall()]
 
 def add_item(bid, t, content=None, file_id=None, local_path=None, channel_msg_id=None):
     c = db(); cur = c.cursor()

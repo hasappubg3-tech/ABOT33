@@ -36,6 +36,34 @@ async def upload_to_channel(bot, fid: str, file_type: str, caption: str = None) 
         logging.warning(f"فشل رفع الملف للقناة: {e}")
         return None
 
+async def upload_item_to_channel(bot, item) -> int | None:
+    ch = get_storage_channel_id()
+    if not ch:
+        return None
+    file_type = item.get("type")
+    caption = item.get("content") or None
+    fid = item.get("file_id")
+    local_path = item.get("local_path")
+    if local_path and os.path.exists(local_path):
+        try:
+            with open(local_path, "rb") as f:
+                if file_type == "photo":
+                    msg = await bot.send_photo(ch, f, caption=caption)
+                elif file_type == "file":
+                    msg = await bot.send_document(ch, f, caption=caption)
+                elif file_type == "video":
+                    msg = await bot.send_video(ch, f, caption=caption)
+                elif file_type == "audio":
+                    msg = await bot.send_audio(ch, f, caption=caption)
+                else:
+                    return None
+            return msg.message_id if msg else None
+        except Exception as e:
+            logging.warning(f"فشل رفع الملف المحلي للقناة للعنصر {item.get('id')}: {e}")
+    if fid:
+        return await upload_to_channel(bot, fid, file_type, caption)
+    return None
+
 async def send_file_item(target, item, reply_markup=None, extra_caption=""):
     t = item["type"]
     fid = item.get("file_id")

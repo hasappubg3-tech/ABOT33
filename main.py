@@ -14,6 +14,8 @@ def main():
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("myid", cmd_myid))
+    app.add_handler(CommandHandler("storage_status", cmd_storage_status))
+    app.add_handler(CommandHandler("repair_storage", cmd_repair_storage))
     app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
     app.add_handler(PollAnswerHandler(on_poll_answer))
