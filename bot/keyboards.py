@@ -355,7 +355,7 @@ def kb_edit_menu_btn(bid):
     return InlineKeyboardMarkup(rows)
 
 def kb_content_panel(bid):
-    """لوحة إدارة محتوى الزر (كاملة). إذا كان الزر داخل زر مدمج تُخفى مفاتيح التوحيد لأنها تُدار من الأب."""
+    """لوحة إدارة محتوى الزر (كاملة). تعمل لكل أزرار المحتوى بما فيها الموجودة داخل زر مدمج."""
     items = get_items(bid)
     b = get_btn(bid)
     parent_b = get_btn(b.get("parent_id")) if (b and b.get("parent_id")) else None
@@ -364,20 +364,19 @@ def kb_content_panel(bid):
     if items:
         rows.append([InlineKeyboardButton("👁 عرض المحتوى", callback_data=f"ci_view_{bid}")])
     rows.append([InlineKeyboardButton("➕ إضافة محتوى", callback_data=f"ci_add_{bid}")])
-    if not in_compound:
-        global_cap = get_global_caption()
-        if global_cap:
-            no_cap = (b.get("no_caption", 0) or 0) if b else 0
-            cap_label = "✅ تفعيل كليشة الكلام" if no_cap else "🚫 إلغاء كليشة الكلام"
-            rows.append([InlineKeyboardButton(cap_label, callback_data=f"ci_toggle_cap_{bid}")])
-        cap_btns = get_caption_buttons()
-        if cap_btns:
-            no_btn_cap = (b.get("no_btn_caption", 0) or 0) if b else 0
-            btn_cap_label = "✅ تفعيل كليشة الأزرار" if no_btn_cap else "🚫 إلغاء كليشة الأزرار"
-            rows.append([InlineKeyboardButton(btn_cap_label, callback_data=f"ci_toggle_btn_cap_{bid}")])
-        unified = (b.get("unified_rating", 0) or 0) if b else 0
-        unified_label = "🔀 إلغاء توحيد التقييم" if unified else "⭐ توحيد التقييم"
-        rows.append([InlineKeyboardButton(unified_label, callback_data=f"ci_toggle_urating_{bid}")])
+    global_cap = get_global_caption()
+    if global_cap:
+        no_cap = (b.get("no_caption", 0) or 0) if b else 0
+        cap_label = "✅ تفعيل كليشة الكلام" if no_cap else "🚫 إلغاء كليشة الكلام"
+        rows.append([InlineKeyboardButton(cap_label, callback_data=f"ci_toggle_cap_{bid}")])
+    cap_btns = get_caption_buttons()
+    if cap_btns:
+        no_btn_cap = (b.get("no_btn_caption", 0) or 0) if b else 0
+        btn_cap_label = "✅ تفعيل كليشة الأزرار" if no_btn_cap else "🚫 إلغاء كليشة الأزرار"
+        rows.append([InlineKeyboardButton(btn_cap_label, callback_data=f"ci_toggle_btn_cap_{bid}")])
+    unified = (b.get("unified_rating", 0) or 0) if b else 0
+    unified_label = "🔀 إلغاء توحيد التقييم" if unified else "⭐ توحيد التقييم"
+    rows.append([InlineKeyboardButton(unified_label, callback_data=f"ci_toggle_urating_{bid}")])
     rows.append([InlineKeyboardButton("✏️ تغيير الاسم", callback_data=f"el_{bid}")])
     rows.append([InlineKeyboardButton("🗑 حذف الزر",    callback_data=f"confirm_x_{bid}")])
     pid = b["parent_id"] if b else None
@@ -406,7 +405,7 @@ def kb_compound_user(bid):
 
 
 def _kb_compound_panel_rows(bid, with_back=True):
-    """الصفوف المشتركة لإدارة الزر المدمج."""
+    """الصفوف المشتركة لإدارة الزر المدمج. كل زر داخلي له خياراته الخاصة."""
     b = get_btn(bid)
     children = get_buttons(bid)
     rows = []
@@ -418,21 +417,14 @@ def _kb_compound_panel_rows(bid, with_back=True):
         ])
     if not children:
         rows.append([InlineKeyboardButton("📭 لا توجد أزرار داخلية بعد", callback_data="noop")])
-    rows.append([InlineKeyboardButton("➕ إضافة زر داخلي", callback_data=f"cmp_add_{bid}")])
+    if children:
+        rows.append([
+            InlineKeyboardButton("➕ سطر جديد", callback_data=f"cmp_add_n_{bid}"),
+            InlineKeyboardButton("➕ نفس السطر", callback_data=f"cmp_add_s_{bid}"),
+        ])
+    else:
+        rows.append([InlineKeyboardButton("➕ إضافة زر داخلي", callback_data=f"cmp_add_n_{bid}")])
     rows.append([InlineKeyboardButton("✏️ تعديل نص الرسالة", callback_data=f"cmp_text_{bid}")])
-    unified = (b.get("unified_rating", 0) or 0) if b else 0
-    unified_label = "🔀 إلغاء توحيد التقييم" if unified else "⭐ توحيد التقييم"
-    rows.append([InlineKeyboardButton(unified_label, callback_data=f"cmp_toggle_urating_{bid}")])
-    global_cap = get_global_caption()
-    if global_cap:
-        no_cap = (b.get("no_caption", 0) or 0) if b else 0
-        cap_label = "✅ تفعيل كليشة الكلام" if no_cap else "🚫 إلغاء كليشة الكلام"
-        rows.append([InlineKeyboardButton(cap_label, callback_data=f"cmp_toggle_cap_{bid}")])
-    cap_btns = get_caption_buttons()
-    if cap_btns:
-        no_btn_cap = (b.get("no_btn_caption", 0) or 0) if b else 0
-        btn_cap_label = "✅ تفعيل كليشة الأزرار" if no_btn_cap else "🚫 إلغاء كليشة الأزرار"
-        rows.append([InlineKeyboardButton(btn_cap_label, callback_data=f"cmp_toggle_btn_cap_{bid}")])
     rows.append([InlineKeyboardButton("👁 معاينة الرسالة", callback_data=f"cmp_preview_{bid}")])
     rows.append([InlineKeyboardButton("✏️ تغيير الاسم", callback_data=f"el_{bid}")])
     rows.append([InlineKeyboardButton("🗑 حذف الزر", callback_data=f"confirm_x_{bid}")])

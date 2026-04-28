@@ -365,20 +365,17 @@ async def on_message(update: Update, ctx):
         from_compound = ctx.user_data.pop("_from_compound", None)
         ctx.user_data["pid"] = add_pid
 
-        # عند إنشاء زر مدمج: التقييم موحّد افتراضياً + تطبيق على الأبناء (لا يوجد بعد)
+        # عند إنشاء زر مدمج: لوحة الإدارة فارغة جاهزة لإضافة الأزرار الداخلية
         if t == "compound":
-            set_btn_unified_rating(bid, 1)
-            propagate_compound_settings(bid)
             await m.reply_text(f"✅ تم إنشاء *{text}*", parse_mode="Markdown",
                                reply_markup=build_kb(uid, add_pid))
             await set_panel(ctx, chat_id,
-                            f"🧩 *{text}*\n\nزر مدمج جديد. اضغط ➕ إضافة زر داخلي لإنشاء أول زر.\n_التقييم موحّد افتراضياً._",
+                            f"🧩 *{text}*\n\nزر مدمج جديد. اضغط ➕ إضافة زر داخلي لإنشاء أول زر.",
                             kb_compound_quick(bid))
             return
 
-        # إنشاء زر داخلي تحت زر مدمج: نطبق إعدادات الأب فوراً ونعود للوحة المدمج
+        # إنشاء زر داخلي تحت زر مدمج: نعود للوحة المدمج (الخيارات مستقلة لكل زر داخلي)
         if from_compound and t == "content":
-            propagate_compound_settings(from_compound)
             parent_b = get_btn(from_compound)
             new_pid = parent_b.get("parent_id") if parent_b else None
             ctx.user_data["pid"] = new_pid

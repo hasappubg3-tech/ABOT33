@@ -1589,17 +1589,29 @@ async def cb_manage(update: Update, ctx):
         return
 
     # ── إدارة الزر المدمج ───────────────────────────────────────
-    if d.startswith("cmp_add_"):
-        bid = int(d[len("cmp_add_"):])
+    if d.startswith("cmp_add_n_") or d.startswith("cmp_add_s_"):
+        same_row = d.startswith("cmp_add_s_")
+        bid = int(d[len("cmp_add_n_"):])
         ctx.user_data["new_type"] = "content"
         ctx.user_data["add_pid"] = bid
-        ctx.user_data.pop("add_after", None)
-        ctx.user_data.pop("add_new_row", None)
         ctx.user_data.pop("add_before", None)
+        if same_row:
+            children = get_buttons(bid)
+            if children:
+                last_child = children[-1]
+                ctx.user_data["add_after"] = last_child["id"]
+                ctx.user_data["add_new_row"] = 0
+            else:
+                ctx.user_data.pop("add_after", None)
+                ctx.user_data.pop("add_new_row", None)
+        else:
+            ctx.user_data.pop("add_after", None)
+            ctx.user_data.pop("add_new_row", None)
         ctx.user_data["state"] = "wait_label"
         ctx.user_data["_from_compound"] = bid
+        position_hint = "بنفس سطر آخر زر داخلي" if same_row else "في سطر جديد"
         await q.edit_message_text(
-            "✏️ *إضافة زر داخلي جديد*\n\nاكتب اسم الزر:",
+            f"✏️ *إضافة زر داخلي جديد* ({position_hint})\n\nاكتب اسم الزر:",
             parse_mode="Markdown", reply_markup=kb_cancel_inline())
         return
 
@@ -1611,45 +1623,6 @@ async def cb_manage(update: Update, ctx):
         await q.edit_message_text(
             f"✏️ *تعديل نص رسالة الزر المدمج*\n\nالنص الحالي:\n_{current}_\n\nأرسل النص الجديد:",
             parse_mode="Markdown", reply_markup=kb_cancel_inline())
-        return
-
-    if d.startswith("cmp_toggle_urating_"):
-        bid = int(d[len("cmp_toggle_urating_"):])
-        toggle_btn_unified_rating(bid)
-        propagate_compound_settings(bid)
-        b = get_btn(bid)
-        children = get_buttons(bid)
-        unified = (b.get("unified_rating", 0) or 0) if b else 0
-        status = "✅ توحيد التقييم مفعّل لكل الأزرار الداخلية" if unified else "⭕ توحيد التقييم مُلغى لكل الأزرار الداخلية"
-        await q.edit_message_text(
-            f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\n{status}",
-            parse_mode="Markdown", reply_markup=kb_compound_manage(bid))
-        return
-
-    if d.startswith("cmp_toggle_cap_"):
-        bid = int(d[len("cmp_toggle_cap_"):])
-        toggle_btn_no_caption(bid)
-        propagate_compound_settings(bid)
-        b = get_btn(bid)
-        children = get_buttons(bid)
-        no_cap = (b.get("no_caption", 0) or 0) if b else 0
-        status = "🚫 كليشة الكلام مُلغاة لكل الأزرار الداخلية" if no_cap else "✅ كليشة الكلام مفعّلة لكل الأزرار الداخلية"
-        await q.edit_message_text(
-            f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\n{status}",
-            parse_mode="Markdown", reply_markup=kb_compound_manage(bid))
-        return
-
-    if d.startswith("cmp_toggle_btn_cap_"):
-        bid = int(d[len("cmp_toggle_btn_cap_"):])
-        toggle_btn_no_btn_caption(bid)
-        propagate_compound_settings(bid)
-        b = get_btn(bid)
-        children = get_buttons(bid)
-        no_btn_cap = (b.get("no_btn_caption", 0) or 0) if b else 0
-        status = "🚫 كليشة الأزرار مُلغاة لكل الأزرار الداخلية" if no_btn_cap else "✅ كليشة الأزرار مفعّلة لكل الأزرار الداخلية"
-        await q.edit_message_text(
-            f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\n{status}",
-            parse_mode="Markdown", reply_markup=kb_compound_manage(bid))
         return
 
     if d.startswith("cmp_preview_"):
