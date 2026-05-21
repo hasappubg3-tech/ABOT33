@@ -925,7 +925,7 @@ async def cb_manage(update: Update, ctx):
             (get_btn(b["parent_id"]) or {}).get("label", "—"))
         items = get_items(bid)
         await q.edit_message_text(
-            f"⭐ *{b['label']}*\nالرقم: `{bid}` | الموضع: _{pid_info}_\n_{len(items)} عنصر_",
+            f"{btn_id_header(bid)}⭐ *{b['label']}*\nالموضع: _{pid_info}_\n_{len(items)} عنصر_",
             parse_mode="Markdown",
             reply_markup=kb_special_manage(bid)
         )
@@ -974,7 +974,7 @@ async def cb_manage(update: Update, ctx):
         no_cap = (b.get("no_caption", 0) or 0) if b else 0
         status = "🚫 كليشة الكلام مُلغاة لهذا الزر" if no_cap else "✅ كليشة الكلام مفعّلة لهذا الزر"
         await q.edit_message_text(
-            f"📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
+            f"{btn_id_header(bid)}📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
             parse_mode="Markdown",
             reply_markup=kb_content_panel(bid)
         )
@@ -1013,7 +1013,7 @@ async def cb_manage(update: Update, ctx):
         no_btn_cap = (b.get("no_btn_caption", 0) or 0) if b else 0
         status = "🚫 كليشة الأزرار مُلغاة لهذا الزر" if no_btn_cap else "✅ كليشة الأزرار مفعّلة لهذا الزر"
         await q.edit_message_text(
-            f"📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
+            f"{btn_id_header(bid)}📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
             parse_mode="Markdown",
             reply_markup=kb_content_panel(bid)
         )
@@ -1027,7 +1027,7 @@ async def cb_manage(update: Update, ctx):
         unified = (b.get("unified_rating", 0) or 0) if b else 0
         status = "✅ توحيد التقييم مفعّل — سيظهر تقييم واحد في الأسفل بعد كل المحتوى" if unified else "⭕ توحيد التقييم مُلغى — سيظهر تقييم لكل ملف على حدة"
         await q.edit_message_text(
-            f"📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
+            f"{btn_id_header(bid)}📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
             parse_mode="Markdown",
             reply_markup=kb_content_panel(bid)
         )
@@ -1048,33 +1048,33 @@ async def cb_manage(update: Update, ctx):
             items = get_items(bid)
             kb = kb_content_quick(bid)
             await q.edit_message_text(
-                f"📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
+                f"{btn_id_header(bid)}📄 *{b['label']}*\n_{len(items)} عنصر_\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb)
         elif t == "menu":
             kb = kb_menu_quick(bid)
             await q.edit_message_text(
-                f"📂 *{b['label']}*\n\n{status}",
+                f"{btn_id_header(bid)}📂 *{b['label']}*\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb)
         elif t == "compound":
             children = get_buttons(bid)
             kb = kb_compound_quick(bid)
             await q.edit_message_text(
-                f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\n{status}",
+                f"{btn_id_header(bid)}🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb)
         elif t == "quiz":
             kb = kb_quiz_quick(bid)
             await q.edit_message_text(
-                f"📊 *{b['label']}*\n\n{status}",
+                f"{btn_id_header(bid)}📊 *{b['label']}*\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb)
         elif t == "exam":
             kb = kb_exam_quick(bid)
             await q.edit_message_text(
-                f"📝 *{b['label']}*\n\n{status}",
+                f"{btn_id_header(bid)}📝 *{b['label']}*\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb)
         else:
             kb = kb_special_quick(bid)
             await q.edit_message_text(
-                f"⭐ *{b['label']}*\n\n{status}",
+                f"{btn_id_header(bid)}⭐ *{b['label']}*\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb)
         return
 
@@ -1254,36 +1254,36 @@ async def cb_manage(update: Update, ctx):
         ctx.user_data["pid"] = ep
         if b and b["type"] == "content":
             items = get_items(ep)
-            await q.edit_message_text(f"📄 *{b['label']}*\n_{len(items)} عنصر_",
+            await q.edit_message_text(f"{btn_id_header(ep)}📄 *{b['label']}*\n_{len(items)} عنصر_",
                                       parse_mode="Markdown", reply_markup=kb_content_panel(ep))
         elif b and b["type"] == "exam":
             questions = get_exam_questions(ep)
             await q.edit_message_text(
-                f"📝 *{b['label']}*\n_{len(questions)} سؤال_",
+                f"{btn_id_header(ep)}📝 *{b['label']}*\n_{len(questions)} سؤال_",
                 parse_mode="Markdown", reply_markup=kb_exam_panel(ep))
         elif b and b["type"] == "exam_group":
             topics = get_exam_topics(ep)
             await q.edit_message_text(
-                f"🎓 *{b['label']}*\n_{len(topics)} موضوع_\n\nإدارة مواضيع الامتحان:",
+                f"{btn_id_header(ep)}🎓 *{b['label']}*\n_{len(topics)} موضوع_\n\nإدارة مواضيع الامتحان:",
                 parse_mode="Markdown", reply_markup=kb_exam_group_manage(ep))
         elif b and b["type"] == "compound":
             ctx.user_data["pid"] = b.get("parent_id")
             children = get_buttons(ep)
             await q.edit_message_text(
-                f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\nإدارة الأزرار الداخلية:",
+                f"{btn_id_header(ep)}🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\nإدارة الأزرار الداخلية:",
                 parse_mode="Markdown", reply_markup=kb_compound_manage(ep))
         elif b and b["type"] == "special":
             action = b.get("special_action")
             if action == "container":
                 await q.edit_message_text(
-                    f"⚙️ *إدارة أزرار: {b['label']}*", parse_mode="Markdown",
+                    f"{btn_id_header(ep)}⚙️ *إدارة أزرار: {b['label']}*", parse_mode="Markdown",
                     reply_markup=kb_manage(ep))
             else:
                 await q.edit_message_text(
-                    f"⭐ *{b['label']}*\n🔢 رقم الزر (ID): `{ep}`\n\n_هذا الزر مخصص._",
+                    f"{btn_id_header(ep)}⭐ *{b['label']}*\n_هذا الزر مخصص._",
                     parse_mode="Markdown", reply_markup=kb_special_manage(ep))
         else:
-            await q.edit_message_text(f"📂 *{b['label']}*" if b else "⚙️ *إدارة الأزرار*:",
+            await q.edit_message_text(f"{btn_id_header(ep) if b else ''}📂 *{b['label']}*" if b else "⚙️ *إدارة الأزرار*:",
                                       parse_mode="Markdown", reply_markup=kb_manage(ep if b else None))
         return
 
@@ -1293,40 +1293,40 @@ async def cb_manage(update: Update, ctx):
         if not b: return
         if b["type"] == "content":
             items = get_items(bid)
-            await q.edit_message_text(f"📄 *{b['label']}*\n_{len(items)} عنصر_",
+            await q.edit_message_text(f"{btn_id_header(bid)}📄 *{b['label']}*\n_{len(items)} عنصر_",
                                       parse_mode="Markdown", reply_markup=kb_content_panel(bid))
         elif b["type"] == "quiz":
             questions = get_quiz_questions(bid)
             await q.edit_message_text(
-                f"📊 *{b['label']}*\n_{len(questions)} سؤال_",
+                f"{btn_id_header(bid)}📊 *{b['label']}*\n_{len(questions)} سؤال_",
                 parse_mode="Markdown", reply_markup=kb_quiz_panel(bid))
         elif b["type"] == "exam":
             questions = get_exam_questions(bid)
             await q.edit_message_text(
-                f"📝 *{b['label']}*\n_{len(questions)} سؤال_",
+                f"{btn_id_header(bid)}📝 *{b['label']}*\n_{len(questions)} سؤال_",
                 parse_mode="Markdown", reply_markup=kb_exam_panel(bid))
         elif b["type"] == "exam_group":
             topics = get_exam_topics(bid)
             await q.edit_message_text(
-                f"🎓 *{b['label']}*\n_{len(topics)} موضوع_\n\nإدارة مواضيع الامتحان:",
+                f"{btn_id_header(bid)}🎓 *{b['label']}*\n_{len(topics)} موضوع_\n\nإدارة مواضيع الامتحان:",
                 parse_mode="Markdown", reply_markup=kb_exam_group_manage(bid))
         elif b["type"] == "compound":
             children = get_buttons(bid)
             await q.edit_message_text(
-                f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\nإدارة الأزرار الداخلية:",
+                f"{btn_id_header(bid)}🧩 *{b['label']}*\n_{len(children)} زر داخلي_\n\nإدارة الأزرار الداخلية:",
                 parse_mode="Markdown", reply_markup=kb_compound_manage(bid))
         elif b["type"] == "special":
             action = b.get("special_action")
             if action == "container":
                 await q.edit_message_text(
-                    f"⭐ *{b['label']}* — حاوية (#{bid})\nاضغط لإدارة الأزرار الداخلية:",
+                    f"{btn_id_header(bid)}⭐ *{b['label']}*\n_حاوية — اضغط لإدارة الأزرار الداخلية:_",
                     parse_mode="Markdown", reply_markup=kb_special_container_quick(bid))
             else:
                 await q.edit_message_text(
-                    f"⭐ *{b['label']}*\n🔢 رقم الزر (ID): `{bid}`\n\n_هذا الزر مخصص — سلوكه يُحدَّد برمجياً._",
+                    f"{btn_id_header(bid)}⭐ *{b['label']}*\n_هذا الزر مخصص — سلوكه يُحدَّد برمجياً._",
                     parse_mode="Markdown", reply_markup=kb_special_manage(bid))
         else:
-            await q.edit_message_text(f"📂 *{b['label']}*", parse_mode="Markdown",
+            await q.edit_message_text(f"{btn_id_header(bid)}📂 *{b['label']}*", parse_mode="Markdown",
                                       reply_markup=kb_edit_menu_btn(bid))
         return
 
@@ -1339,7 +1339,7 @@ async def cb_manage(update: Update, ctx):
             b = get_btn(bid)
             questions = get_quiz_questions(bid)
             await q.edit_message_text(
-                f"📊 *{b['label'] if b else 'كويز'}*\n_{len(questions)} سؤال_",
+                f"{btn_id_header(bid)}📊 *{b['label'] if b else 'كويز'}*\n_{len(questions)} سؤال_",
                 parse_mode="Markdown", reply_markup=kb_quiz_panel(bid))
             return
 
@@ -1438,7 +1438,7 @@ async def cb_manage(update: Update, ctx):
             random_q = (b.get("random_quiz", 0) or 0) if b else 0
             status = "✅ التوزيع العشوائي مفعّل — سؤال عشوائي بدون تكرار خلال ساعة" if random_q else "⭕ التوزيع العشوائي مُلغى — يُرسل السؤال الأول دائماً"
             await q.edit_message_text(
-                f"📊 *{b['label'] if b else 'كويز'}*\n_{len(questions)} سؤال_\n\n{status}",
+                f"{btn_id_header(bid)}📊 *{b['label'] if b else 'كويز'}*\n_{len(questions)} سؤال_\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb_quiz_panel(bid))
             return
 
@@ -1453,7 +1453,7 @@ async def cb_manage(update: Update, ctx):
             b = get_btn(bid)
             questions = get_exam_questions(bid)
             await q.edit_message_text(
-                f"📝 *{b['label'] if b else 'امتحان'}*\n_{len(questions)} سؤال_",
+                f"{btn_id_header(bid)}📝 *{b['label'] if b else 'امتحان'}*\n_{len(questions)} سؤال_",
                 parse_mode="Markdown", reply_markup=kb_exam_panel(bid))
             return
 
@@ -1512,7 +1512,7 @@ async def cb_manage(update: Update, ctx):
             random_e = (b.get("random_exam", 0) or 0) if b else 0
             status = "✅ التوزيع العشوائي مفعّل — الأسئلة بترتيب عشوائي" if random_e else "⭕ التوزيع العشوائي مُلغى — الأسئلة بالترتيب"
             await q.edit_message_text(
-                f"📝 *{b['label'] if b else 'امتحان'}*\n_{len(questions)} سؤال_\n\n{status}",
+                f"{btn_id_header(bid)}📝 *{b['label'] if b else 'امتحان'}*\n_{len(questions)} سؤال_\n\n{status}",
                 parse_mode="Markdown", reply_markup=kb_exam_panel(bid))
             return
 
@@ -1709,7 +1709,7 @@ async def cb_manage(update: Update, ctx):
         b = get_btn(bid)
         children = get_buttons(bid)
         await q.edit_message_text(
-            f"🧩 *{b['label'] if b else 'زر مدمج'}*\n_{len(children)} زر داخلي_\n\n✅ تم تبديل موضع الزرين.",
+            f"{btn_id_header(bid)}🧩 *{b['label'] if b else 'زر مدمج'}*\n_{len(children)} زر داخلي_\n\n✅ تم تبديل موضع الزرين.",
             parse_mode="Markdown", reply_markup=kb_compound_manage(bid))
         return
 
@@ -1737,7 +1737,7 @@ async def cb_manage(update: Update, ctx):
         b = get_btn(bid)
         items = get_items(bid)
         await q.edit_message_text(
-            f"✅ تم إنهاء الإضافة.\n\n📄 *{b['label'] if b else 'المحتوى'}*\n_{len(items)} عنصر_",
+            f"{btn_id_header(bid)}📄 *{b['label'] if b else 'المحتوى'}*\n_{len(items)} عنصر_\n\n✅ تم إنهاء الإضافة.",
             parse_mode="Markdown",
             reply_markup=kb_content_panel(bid)
         ); return

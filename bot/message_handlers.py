@@ -1190,13 +1190,13 @@ async def on_message(update: Update, ctx):
         ctx.user_data["pid"] = b["id"]
         await m.reply_text(".", reply_markup=build_kb(uid, b["id"]))
         if is_admin(uid):
-            await set_panel(ctx, chat_id, f"📂 *{b['label']}*", kb_menu_quick(b["id"]))
+            await set_panel(ctx, chat_id, f"{btn_id_header(b['id'])}📂 *{b['label']}*", kb_menu_quick(b["id"]))
 
     elif b["type"] == "content":
         if is_admin(uid):
             items = get_items(b["id"])
             await set_panel(ctx, chat_id,
-                            f"📄 *{b['label']}*\n_{len(items)} عنصر_",
+                            f"{btn_id_header(b['id'])}📄 *{b['label']}*\n_{len(items)} عنصر_",
                             kb_content_quick(b["id"]))
         else:
             await send_items(m, b["id"], uid=uid, bot=ctx.bot)
@@ -1205,7 +1205,7 @@ async def on_message(update: Update, ctx):
         if is_admin(uid):
             questions = get_quiz_questions(b["id"])
             await set_panel(ctx, chat_id,
-                            f"📊 *{b['label']}*\n_{len(questions)} سؤال_",
+                            f"{btn_id_header(b['id'])}📊 *{b['label']}*\n_{len(questions)} سؤال_",
                             kb_quiz_quick(b["id"]))
         else:
             await send_quiz_ready(m, b["id"])
@@ -1214,7 +1214,7 @@ async def on_message(update: Update, ctx):
         if is_admin(uid):
             questions = get_exam_questions(b["id"])
             await set_panel(ctx, chat_id,
-                            f"📝 *{b['label']}*\n_{len(questions)} سؤال_",
+                            f"{btn_id_header(b['id'])}📝 *{b['label']}*\n_{len(questions)} سؤال_",
                             kb_exam_quick(b["id"]))
         else:
             parent_btn = get_btn(b.get("parent_id")) if b.get("parent_id") else None
@@ -1233,7 +1233,7 @@ async def on_message(update: Update, ctx):
             ctx.user_data["pid"] = b["id"]
             await m.reply_text(".", reply_markup=build_kb(uid, b["id"]))
             await set_panel(ctx, chat_id,
-                            f"🎓 *{b['label']}*\n_زر امتحان رئيسي — أضف داخله أزرار اختبار كمواضيع._",
+                            f"{btn_id_header(b['id'])}🎓 *{b['label']}*\n_زر امتحان رئيسي — أضف داخله أزرار اختبار كمواضيع._",
                             kb_exam_group_quick(b["id"]))
         else:
             ctx.user_data["pid"] = b["id"]
@@ -1247,7 +1247,7 @@ async def on_message(update: Update, ctx):
         if is_admin(uid):
             children = get_buttons(b["id"])
             await set_panel(ctx, chat_id,
-                            f"🧩 *{b['label']}*\n_{len(children)} زر داخلي_",
+                            f"{btn_id_header(b['id'])}🧩 *{b['label']}*\n_{len(children)} زر داخلي_",
                             kb_compound_quick(b["id"]))
         else:
             children = get_buttons(b["id"])
@@ -1265,7 +1265,7 @@ async def on_message(update: Update, ctx):
             await m.reply_text(".", reply_markup=build_kb(uid, b["id"]))
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* — حاوية (#{b['id']})",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_حاوية_",
                                 kb_special_container_quick(b["id"]))
         elif action == "pomodoro":
             await m.reply_text(
@@ -1275,7 +1275,7 @@ async def on_message(update: Update, ctx):
             )
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* (#{b['id']})\n_زر بومودورو_",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_زر بومودورو_",
                                 kb_special_quick(b["id"]))
         elif action == "donate_stars":
             await m.reply_text(
@@ -1285,7 +1285,7 @@ async def on_message(update: Update, ctx):
             )
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* (#{b['id']})\n_زر تبرع بالنجوم_",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_زر تبرع بالنجوم_",
                                 kb_special_quick(b["id"]))
         elif action == "toggle_ratings":
             await m.reply_text(
@@ -1295,12 +1295,12 @@ async def on_message(update: Update, ctx):
             )
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* (#{b['id']})\n_زر إعدادات التقييمات_",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_زر إعدادات التقييمات_",
                                 kb_special_quick(b["id"]))
         elif action == "file_request":
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* (#{b['id']})\n_زر طلبات إضافة الملفات_",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_زر طلبات إضافة الملفات_",
                                 kb_special_quick(b["id"]))
             else:
                 ctx.user_data["state"] = "wait_file_request"
@@ -1321,7 +1321,7 @@ async def on_message(update: Update, ctx):
         elif action == "file_upload":
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* (#{b['id']})\n_زر رفع الملفات_",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_زر رفع الملفات_",
                                 kb_special_quick(b["id"]))
             else:
                 ctx.user_data["state"] = "wait_file_upload"
@@ -1340,10 +1340,10 @@ async def on_message(update: Update, ctx):
             )
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}* (#{b['id']})\n_زر أبرز المستخدمين_",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_زر أبرز المستخدمين_",
                                 kb_special_quick(b["id"]))
         else:
             if is_admin(uid):
                 await set_panel(ctx, chat_id,
-                                f"⭐ *{b['label']}*\n🔢 رقم الزر (ID): `{b['id']}`\n\n_هذا الزر مخصص — سلوكه يُحدَّد برمجياً._",
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_هذا الزر مخصص — سلوكه يُحدَّد برمجياً._",
                                 kb_special_quick(b["id"]))

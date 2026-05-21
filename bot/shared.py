@@ -119,4 +119,8 @@ def _strip_bid_markers(text: str) -> str:
     cleaned, _ = _decode_bid(text or "")
     return cleaned
 
+def btn_id_header(bid: int) -> str:
+    """سطر رقم الزر يظهر أعلى كل رسالة إدارة للمشرف."""
+    return f"🔢 *#{bid}*\n"
+
 __all__ = [name for name in globals() if not name.startswith("__")]
