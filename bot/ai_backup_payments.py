@@ -164,13 +164,89 @@ async def _call_gemini(client: httpx.AsyncClient, prompt: str):
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
     for key in GEMINI_KEYS:
-        resp = await client.post(url, params={"key": key}, json=payload, timeout=30)
+        resp = await client.post(url, params={"key": key}, json=payload, timeout=60)
         if resp.status_code in (429, 503):
             logging.warning(f"Gemini key ...{key[-6:]} rate-limited, trying next key...")
             continue
         resp.raise_for_status()
         return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
     return None
+
+async def generate_quiz_questions(source_text: str, count: int):
+    """يستخرج أسئلة كويز MCQ من نص مصدر باستخدام Gemini."""
+    import re
+    if not GEMINI_KEYS:
+        return None, "❌ لم يُعَيَّن مفتاح Gemini API."
+    prompt = (
+        f"أنت مساعد تعليمي متخصص في إنشاء أسئلة اختيار متعدد (MCQ).\n\n"
+        f"اقرأ النص المصدر التالي وأنشئ {count} سؤال اختيار متعدد منه.\n\n"
+        "قواعد:\n"
+        "- كل سؤال له 4 خيارات (واحد صحيح وثلاثة خاطئة منطقية وغير واضحة)\n"
+        "- الخيارات الخاطئة يجب أن تكون معقولة لتصعيب التخمين\n"
+        f"- إذا لم يكفِ النص لـ {count} سؤال، أنشئ أكبر عدد ممكن\n"
+        "- أرجع JSON صحيح فقط بدون أي نص إضافي\n\n"
+        "الشكل المطلوب:\n"
+        '[\n  {\n    "question": "نص السؤال",\n'
+        '    "options": ["خيار 1", "خيار 2", "خيار 3", "خيار 4"],\n'
+        '    "correct": 0\n  }\n]\n\n'
+        'حيث "correct" هو رقم الخيار الصحيح (0=الأول، 1=الثاني، 2=الثالث، 3=الرابع).\n\n'
+        f"النص المصدر:\n{source_text[:15000]}"
+    )
+    try:
+        async with httpx.AsyncClient() as client:
+            result = await _call_gemini(client, prompt)
+        if not result:
+            return None, "❌ لم يستجب الذكاء الاصطناعي. حاول مجدداً."
+        json_match = re.search(r'\[[\s\S]*\]', result)
+        if not json_match:
+            return None, "❌ لم يتمكن الذكاء الاصطناعي من توليد الأسئلة من هذا النص."
+        questions = json.loads(json_match.group())
+        if not isinstance(questions, list):
+            return None, "❌ صيغة الإجابة غير صحيحة."
+        return questions, None
+    except json.JSONDecodeError:
+        return None, "❌ خطأ في معالجة إجابة الذكاء الاصطناعي."
+    except Exception as e:
+        logging.error(f"generate_quiz_questions error: {e}")
+        return None, f"❌ خطأ أثناء التوليد: {e}"
+
+async def generate_quiz_questions_from_file(b64_data: str, mime_type: str, count: int):
+    """يستخرج أسئلة كويز MCQ من ملف (صورة أو PDF) باستخدام Gemini Vision."""
+    import re
+    if not GEMINI_KEYS:
+        return None, "❌ لم يُعَيَّن مفتاح Gemini API."
+    prompt = (
+        f"أنت مساعد تعليمي متخصص في إنشاء أسئلة اختيار متعدد (MCQ).\n\n"
+        f"اقرأ الملف المرفق وأنشئ {count} سؤال اختيار متعدد من محتواه.\n\n"
+        "قواعد:\n"
+        "- كل سؤال له 4 خيارات (واحد صحيح وثلاثة خاطئة منطقية وغير واضحة)\n"
+        "- الخيارات الخاطئة يجب أن تكون معقولة لتصعيب التخمين\n"
+        f"- إذا لم يكفِ المحتوى لـ {count} سؤال، أنشئ أكبر عدد ممكن\n"
+        "- أرجع JSON صحيح فقط بدون أي نص إضافي\n\n"
+        "الشكل المطلوب:\n"
+        '[\n  {\n    "question": "نص السؤال",\n'
+        '    "options": ["خيار 1", "خيار 2", "خيار 3", "خيار 4"],\n'
+        '    "correct": 0\n  }\n]\n\n'
+        'حيث "correct" هو رقم الخيار الصحيح (0=الأول، 1=الثاني، 2=الثالث، 3=الرابع).'
+    )
+    try:
+        images = [{"data": b64_data, "mime": mime_type}]
+        async with httpx.AsyncClient() as client:
+            result = await _call_gemini_vision(client, prompt, images)
+        if not result:
+            return None, "❌ لم يستجب الذكاء الاصطناعي."
+        json_match = re.search(r'\[[\s\S]*\]', result)
+        if not json_match:
+            return None, "❌ لم يتمكن الذكاء الاصطناعي من توليد الأسئلة من هذا الملف."
+        questions = json.loads(json_match.group())
+        if not isinstance(questions, list):
+            return None, "❌ صيغة الإجابة غير صحيحة."
+        return questions, None
+    except json.JSONDecodeError:
+        return None, "❌ خطأ في معالجة إجابة الذكاء الاصطناعي."
+    except Exception as e:
+        logging.error(f"generate_quiz_questions_from_file error: {e}")
+        return None, f"❌ خطأ أثناء التوليد: {e}"
 
 async def process_ai_request(user_request: str, current_btns: list = None):
     """يستدعي Gemini ويُرجع (action, operations, del_idx, error)."""

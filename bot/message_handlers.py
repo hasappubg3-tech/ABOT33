@@ -667,6 +667,111 @@ async def on_message(update: Update, ctx):
                            parse_mode="Markdown", reply_markup=build_kb(uid, pid))
         return
 
+    # ── انتظار عدد أسئلة الكويز التلقائي ────────────────────────
+    if state == "wait_quiz_ai_count":
+        if not m.text or not m.text.strip().isdigit():
+            await m.reply_text("⚠️ أرسل رقماً صحيحاً (مثال: 10)."); return
+        count = int(m.text.strip())
+        if count < 1 or count > 50:
+            await m.reply_text("⚠️ العدد يجب أن يكون بين 1 و 50."); return
+        ctx.user_data["quiz_ai_count"] = count
+        ctx.user_data["state"] = "wait_quiz_ai_source"
+        bid = ctx.user_data.get("quiz_ai_bid")
+        await m.reply_text(
+            f"✅ سيتم توليد *{count}* سؤال.\n\n"
+            "📎 الآن أرسل المصدر:\n"
+            "• نص مباشر\n"
+            "• ملف TXT أو PDF\n"
+            "• صورة تحتوي نصاً",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("إلغاء", callback_data=f"qz_panel_{bid}")
+            ]])
+        )
+        return
+
+    # ── انتظار مصدر الكويز التلقائي (نص / ملف / صورة) ───────────
+    if state == "wait_quiz_ai_source":
+        bid = ctx.user_data.pop("quiz_ai_bid", None)
+        count = ctx.user_data.pop("quiz_ai_count", 10)
+        ctx.user_data.pop("state", None)
+        if not bid: return
+
+        if not GEMINI_KEYS:
+            await m.reply_text("❌ خاصية الملء التلقائي تتطلب مفتاح Gemini API."); return
+
+        wait_msg = await m.reply_text(f"⏳ جاري توليد {count} سؤال بالذكاء الاصطناعي...")
+
+        questions = None
+        error = None
+
+        if m.text and m.text.strip():
+            questions, error = await generate_quiz_questions(m.text.strip(), count)
+        elif m.document:
+            import base64 as _b64, io as _io
+            doc = m.document
+            mime = doc.mime_type or ""
+            tg_file = await ctx.bot.get_file(doc.file_id)
+            buf = _io.BytesIO()
+            await tg_file.download_to_memory(buf)
+            buf.seek(0)
+            if "pdf" in mime:
+                b64 = _b64.b64encode(buf.read()).decode()
+                questions, error = await generate_quiz_questions_from_file(b64, "application/pdf", count)
+            else:
+                try:
+                    source_text = buf.read().decode("utf-8")
+                except Exception:
+                    buf.seek(0)
+                    source_text = buf.read().decode("latin-1", errors="ignore")
+                questions, error = await generate_quiz_questions(source_text, count)
+        elif m.photo:
+            import base64 as _b64, io as _io
+            photo = m.photo[-1]
+            tg_file = await ctx.bot.get_file(photo.file_id)
+            buf = _io.BytesIO()
+            await tg_file.download_to_memory(buf)
+            buf.seek(0)
+            b64 = _b64.b64encode(buf.read()).decode()
+            questions, error = await generate_quiz_questions_from_file(b64, "image/jpeg", count)
+        else:
+            await wait_msg.edit_text("⚠️ أرسل نصاً أو ملفاً أو صورة."); return
+
+        if error:
+            await wait_msg.edit_text(error); return
+        if not questions:
+            await wait_msg.edit_text("⚠️ لم يتم توليد أي سؤال من المصدر المقدم."); return
+
+        added = 0
+        for q_data in questions:
+            q_text = (q_data.get("question") or "").strip()
+            options = q_data.get("options", [])
+            correct = q_data.get("correct", 0)
+            if not q_text or len(options) < 2:
+                continue
+            qid = add_quiz_question(bid, q_text)
+            for opt in options:
+                add_quiz_option(qid, str(opt).strip())
+            try:
+                correct_idx = int(correct)
+            except Exception:
+                correct_idx = 0
+            correct_idx = max(0, min(correct_idx, len(options) - 1))
+            set_correct_option(qid, correct_idx)
+            added += 1
+
+        b = get_btn(bid)
+        total = len(get_quiz_questions(bid))
+        await wait_msg.edit_text(
+            f"✅ تم توليد وإضافة *{added}* سؤال بنجاح!\n"
+            f"📊 إجمالي الأسئلة في الكويز: *{total}*",
+            parse_mode="Markdown"
+        )
+        await set_panel(ctx, chat_id,
+                        f"📊 *{b['label'] if b else 'كويز'}*\n_{total} سؤال_",
+                        kb_quiz_panel(bid))
+        return
+
     # ── انتظار نص رسالة الاشتراك (النظام 1) ─────────────────────
     if state == "wait_notif_msg":
         if not m.text or m.text in SPECIAL_BTNS:

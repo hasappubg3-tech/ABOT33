@@ -103,6 +103,7 @@ def kb_quiz_panel(bid):
     if questions:
         rows.append([InlineKeyboardButton(f"📋 الأسئلة ({len(questions)})", callback_data=f"qz_list_{bid}")])
     rows.append([InlineKeyboardButton("➕ إضافة سؤال", callback_data=f"qz_add_{bid}")])
+    rows.append([InlineKeyboardButton("⚡ ملء تلقائي بالذكاء الاصطناعي", callback_data=f"qz_ai_fill_{bid}")])
     rand_label = "🔀 إلغاء التوزيع العشوائي" if random_q else "🔀 تفعيل التوزيع العشوائي"
     rows.append([InlineKeyboardButton(rand_label, callback_data=f"qz_toggle_rand_{bid}")])
     rows.append([InlineKeyboardButton("✏️ تغيير الاسم", callback_data=f"el_{bid}")])
@@ -119,12 +120,24 @@ def kb_quiz_quick(bid):
     if questions:
         rows.append([InlineKeyboardButton(f"📋 الأسئلة ({len(questions)})", callback_data=f"qz_list_{bid}")])
     rows.append([InlineKeyboardButton("➕ إضافة سؤال", callback_data=f"qz_add_{bid}")])
+    rows.append([InlineKeyboardButton("⚡ ملء تلقائي بالذكاء الاصطناعي", callback_data=f"qz_ai_fill_{bid}")])
     rand_label = "🔀 إلغاء التوزيع العشوائي" if random_q else "🔀 تفعيل التوزيع العشوائي"
     rows.append([InlineKeyboardButton(rand_label, callback_data=f"qz_toggle_rand_{bid}")])
     rows.append([InlineKeyboardButton("✏️ تغيير الاسم", callback_data=f"el_{bid}")])
     if b: rows.append(_hidden_toggle_row(b))
     rows.append([InlineKeyboardButton("🗑 حذف", callback_data=f"confirm_x_{bid}")])
     return InlineKeyboardMarkup(rows)
+
+def kb_quiz_ai_count(bid):
+    """كيبورد اختيار عدد الأسئلة للملء التلقائي."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("5 أسئلة", callback_data=f"qz_ai_cnt_{bid}_5"),
+         InlineKeyboardButton("10 أسئلة", callback_data=f"qz_ai_cnt_{bid}_10")],
+        [InlineKeyboardButton("15 سؤالاً", callback_data=f"qz_ai_cnt_{bid}_15"),
+         InlineKeyboardButton("20 سؤالاً", callback_data=f"qz_ai_cnt_{bid}_20")],
+        [InlineKeyboardButton("✏️ عدد مخصص", callback_data=f"qz_ai_cust_{bid}")],
+        [InlineKeyboardButton("إلغاء", callback_data=f"qz_panel_{bid}")],
+    ])
 
 def kb_quiz_question_list(bid):
     questions = get_quiz_questions(bid)

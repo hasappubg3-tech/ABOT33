@@ -1586,6 +1586,49 @@ async def cb_manage(update: Update, ctx):
                 parse_mode="Markdown", reply_markup=kb_quiz_panel(bid))
             return
 
+        if d.startswith("qz_ai_fill_"):
+            bid = int(d[11:])
+            b = get_btn(bid)
+            await q.edit_message_text(
+                f"⚡ *ملء الكويز تلقائياً بالذكاء الاصطناعي*\n\n"
+                f"📊 *{b['label'] if b else 'كويز'}*\n\n"
+                "اختر عدد الأسئلة التي تريد توليدها:",
+                parse_mode="Markdown",
+                reply_markup=kb_quiz_ai_count(bid)
+            )
+            return
+
+        if d.startswith("qz_ai_cnt_"):
+            parts = d[10:].rsplit("_", 1)
+            bid = int(parts[0]); count = int(parts[1])
+            ctx.user_data["quiz_ai_bid"] = bid
+            ctx.user_data["quiz_ai_count"] = count
+            ctx.user_data["state"] = "wait_quiz_ai_source"
+            await q.edit_message_text(
+                f"⚡ سيتم توليد *{count}* سؤال.\n\n"
+                "📎 الآن أرسل المصدر:\n"
+                "• نص مباشر\n"
+                "• ملف TXT أو PDF\n"
+                "• صورة تحتوي نصاً",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("إلغاء", callback_data=f"qz_panel_{bid}")
+                ]])
+            )
+            return
+
+        if d.startswith("qz_ai_cust_"):
+            bid = int(d[11:])
+            ctx.user_data["quiz_ai_bid"] = bid
+            ctx.user_data["state"] = "wait_quiz_ai_count"
+            await q.edit_message_text(
+                "✏️ أرسل عدد الأسئلة المطلوبة (رقم بين 1 و 50):",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("إلغاء", callback_data=f"qz_panel_{bid}")
+                ]])
+            )
+            return
+
         return
 
     # ── إدارة الامتحانات (للمشرفين) ───────────────────────────────
