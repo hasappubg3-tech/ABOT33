@@ -253,6 +253,8 @@ def _fuzzy_match(query: str, btns: list) -> dict | None:
         if q in lbl or lbl in q:
             return b
     q_words = set(w for w in q.split() if len(w) > 1)
+    # للأسماء المكونة من كلمتين يجب تطابق كلتيهما، وإلا يُعدّ اشتراك الاسم الأول فقط مصادفة
+    min_needed = len(q_words) if len(q_words) <= 2 else max(2, round(len(q_words) * 0.6))
     best, best_score = None, 0
     for b in btns:
         lbl_words = set(w for w in _norm(b['label']).split() if len(w) > 1)
@@ -260,7 +262,7 @@ def _fuzzy_match(query: str, btns: list) -> dict | None:
         if score > best_score:
             best_score = score
             best = b
-    return best if best_score >= 1 else None
+    return best if best_score >= min_needed else None
 
 # ── كشف نمط الرموز التعبيرية من الأزرار الموجودة ────────────────
 _EMOJI_RE = _re.compile(
