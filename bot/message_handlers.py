@@ -1487,12 +1487,16 @@ async def on_message(update: Update, ctx):
         btns = get_buttons(pid)
         matched = next((b for b in btns if b['label'] in (text, _clean)), None)
     if not matched:
-        # البوت أُعيد تشغيله وضاع الموقع، نبحث في كل الأزرار عبر MongoDB
-        matched = get_btn_by_label(text) or get_btn_by_label(_clean)
-        if matched:
-            ctx.user_data["pid"] = matched.get("parent_id")
-        else:
-            return
+        if pid is None:
+            # البوت أُعيد تشغيله وضاع pid → نبحث عالمياً فقط من الجذر
+            matched = get_btn_by_label(text) or get_btn_by_label(_clean)
+            if matched:
+                ctx.user_data["pid"] = matched.get("parent_id")
+    if not matched:
+        # النص لا يطابق أي زر في القائمة الحالية
+        # → نعيد إظهار الكيبورد في حال كان مخفياً ونتجاهل النص
+        await m.reply_text(".", reply_markup=build_kb(uid, pid))
+        return
 
     b = matched
     if b["type"] == "menu":
