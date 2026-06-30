@@ -34,7 +34,7 @@ def _cd_format_remaining(target_dt):
 
 def _cd_message_text(cd):
     personal = "\n_🔒 موعد شخصي_" if cd.get("owner_id") is not None else ""
-    return f"📅 *{cd['label']}*{personal}"
+    return f"*{cd['label']}*{personal}"
 
 def _cd_view_kb(cd_id, owner_id, uid, admin_user, target_dt):
     remaining = _cd_format_remaining(target_dt)
