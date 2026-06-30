@@ -663,7 +663,7 @@ async def _ses_break_end_job(ctx):
                 text=(f"🔔 *انتهت الاستراحة!*\n\n"
                       f"🏠 {room['name']} | الجلسة *{sn_next}*\n"
                       f"👥 {n} مشاركين\n\n"
-                      f"اضغط *جاهز* للبدء — يبدأ تلقائياً عند {needed} جاهزين ({int(READY_THRESHOLD*100)}%)"),
+                      f"اضغط *جاهز* للبدء — يبدأ تلقائياً عندما يوجد  {needed} طلاب جاهزين ({int(READY_THRESHOLD*100)}%)"),
                 parse_mode="Markdown",
                 reply_markup=markup)
         except Exception as e:
