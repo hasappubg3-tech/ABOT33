@@ -382,6 +382,12 @@ def quiz_stats_text(session):
     wrong = max(answered - correct, 0)
     skipped = max(sent - answered, 0)
     percent = round((correct / answered) * 100) if answered else 0
+    if percent >= 80:
+        grade_line = f"🟢 *ممتاز!* نسبتك *{percent}%* — أحسنت 🎉"
+    elif percent >= 60:
+        grade_line = f"🟡 *جيد* نسبتك *{percent}%* — يمكنك تحسينها!"
+    else:
+        grade_line = f"🔴 *تحتاج مراجعة* نسبتك *{percent}%* — حاول مرة أخرى 💪"
     return (
         "📊 *إحصائية الاختبار*\n\n"
         f"🧩 مجموع الأسئلة: *{total}*\n"
@@ -390,7 +396,7 @@ def quiz_stats_text(session):
         f"✅ الإجابات الصحيحة: *{correct}*\n"
         f"❌ الإجابات الخاطئة: *{wrong}*\n"
         f"⏭️ غير المجابة: *{skipped}*\n\n"
-        f"🎯 نسبة الإجابات الصحيحة: *{percent}%*"
+        f"{grade_line}"
     )
 
 def quiz_restart_markup(bid):
@@ -405,6 +411,16 @@ async def finish_quiz_session(target, ctx, bid, uid=None, edit=False):
     if session.get("finished"):
         return
     session["finished"] = True
+    # حفظ نتيجة الكويز للمستخدم في قاعدة البيانات
+    if uid:
+        answered = session.get("answered", 0)
+        correct = session.get("correct", 0)
+        total = session.get("total", 0)
+        percent = round((correct / answered) * 100) if answered else 0
+        try:
+            save_quiz_result(uid, bid, percent, total, correct)
+        except Exception as _e:
+            logging.warning(f"تعذّر حفظ نتيجة الكويز: {_e}")
     text = quiz_stats_text(session)
     if edit:
         await target.edit_message_text(text, parse_mode="Markdown", reply_markup=quiz_restart_markup(bid))
@@ -640,6 +656,18 @@ async def on_poll_answer(update: Update, ctx):
         session["correct"] = session.get("correct", 0) + 1
     if session.get("sent", 0) >= session.get("total", 0):
         session["finished"] = True
+        uid_poll = data.get("user_id")
+        bid_poll = data.get("bid")
+        # حفظ نتيجة الكويز في قاعدة البيانات
+        if uid_poll and bid_poll:
+            answered = session.get("answered", 0)
+            correct  = session.get("correct", 0)
+            total    = session.get("total", 0)
+            percent  = round((correct / answered) * 100) if answered else 0
+            try:
+                save_quiz_result(uid_poll, bid_poll, percent, total, correct)
+            except Exception as _e:
+                logging.warning(f"تعذّر حفظ نتيجة الكويز: {_e}")
         chat_id = data.get("chat_id")
         if chat_id:
             await ctx.bot.send_message(

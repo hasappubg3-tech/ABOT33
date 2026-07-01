@@ -17,12 +17,31 @@ def _hidden_toggle_row(b):
     label = "👁 إظهار الزر للمستخدمين" if is_hidden else "🚫 إخفاء الزر عن المستخدمين"
     return [InlineKeyboardButton(label, callback_data=f"btn_toggle_hide_{bid}")]
 
+def _quiz_status_label(label: str, bid: int, uid: int) -> str:
+    """يُرجع اسم الزر مع لون يعكس حالة الطالب في الكويز."""
+    result = get_quiz_result(uid, bid)
+    if not result:
+        return f"🔴{label}🔴"
+    percent = result.get("percent", 0)
+    if percent >= 80:
+        return f"🟢{label}🟢"
+    return f"🟡{label}🟡"
+
 def build_kb(uid, pid=None):
     btns = get_buttons(pid)
     admin = is_admin(uid)
     rows = []
     current_row = []
     last_bid_in_row = None
+    # استعلام دفعي لنتائج الكويز للمستخدم العادي
+    quiz_results_map = {}
+    if not admin and uid:
+        quiz_bids = [b["id"] for b in btns if b.get("type") == "quiz"]
+        if quiz_bids:
+            try:
+                quiz_results_map = get_quiz_results_batch(uid, quiz_bids)
+            except Exception:
+                quiz_results_map = {}
     for i, b in enumerate(btns):
         if not admin and not _btn_visible_for_user(b):
             continue
@@ -32,7 +51,16 @@ def build_kb(uid, pid=None):
                     current_row.append(KeyboardButton(_plus_label(last_bid_in_row)))
                 rows.append(current_row)
             current_row = []
-        current_row.append(KeyboardButton(b['label'] + _encode_bid(b['id'])))
+        label = b['label']
+        if not admin and uid and b.get("type") == "quiz":
+            result = quiz_results_map.get(b["id"])
+            if not result:
+                label = f"🔴{label}🔴"
+            elif result.get("percent", 0) >= 80:
+                label = f"🟢{label}🟢"
+            else:
+                label = f"🟡{label}🟡"
+        current_row.append(KeyboardButton(label + _encode_bid(b['id'])))
         last_bid_in_row = b['id']
     if current_row:
         if admin and last_bid_in_row is not None:

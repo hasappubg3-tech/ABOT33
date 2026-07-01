@@ -58,6 +58,7 @@ def init_db():
     mdb["comment_reactions"].create_index([("comment_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
     mdb["countdown_dates"].create_index([("id", ASCENDING)], unique=True)
     mdb["countdown_dates"].create_index([("owner_id", ASCENDING)])
+    mdb["quiz_results"].create_index([("user_id", ASCENDING), ("button_id", ASCENDING)], unique=True)
     logging.info("MongoDB: تم تهيئة الفهارس.")
 
 # ── المشرفون ──────────────────────────────────────────────────────
@@ -1067,6 +1068,33 @@ def clear_ai_chat_history(uid: int):
 
 def init_ai_chat_indexes():
     _col("ai_chat_history").create_index([("user_id", ASCENDING)], unique=True)
+
+# ── نتائج الكويز (لكل مستخدم) ────────────────────────────────────
+def save_quiz_result(uid: int, bid: int, percent: int, total: int, correct: int):
+    """يحفظ أو يحدّث نتيجة المستخدم لكويز معين في MongoDB."""
+    _col("quiz_results").update_one(
+        {"user_id": uid, "button_id": bid},
+        {"$set": {
+            "user_id": uid,
+            "button_id": bid,
+            "percent": percent,
+            "total": total,
+            "correct": correct,
+            "completed": True,
+        }},
+        upsert=True,
+    )
+
+def get_quiz_result(uid: int, bid: int):
+    """يُرجع نتيجة المستخدم لكويز معين أو None إن لم يُكمله."""
+    return _d(_col("quiz_results").find_one({"user_id": uid, "button_id": bid}))
+
+def get_quiz_results_batch(uid: int, bids: list) -> dict:
+    """يُرجع dict مفتاحه bid وقيمته نتيجة المستخدم لجميع الكويزات المطلوبة دفعة واحدة."""
+    if not bids:
+        return {}
+    docs = list(_col("quiz_results").find({"user_id": uid, "button_id": {"$in": list(bids)}}))
+    return {d["button_id"]: d for d in docs}
 
 # ── إحصائيات المستخدمين ──────────────────────────────────────────
 def update_user_info(uid, username=None, first_name=None):
