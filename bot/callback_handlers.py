@@ -10,25 +10,102 @@ async def cb_manage(update: Update, ctx):
         return
 
     # ── معالجة تنبيهات الاشتراك (لجميع المستخدمين) ───────────────
-    if (d.startswith("notif_ok_") or d.startswith("notif_skip_")
-            or d.startswith("notif_decline_") or d.startswith("notif_anger_")):
+    if (d.startswith("notif_ok_")      or d.startswith("notif_skip_")
+            or d.startswith("notif_decline_") or d.startswith("notif_anger_")
+            or d.startswith("notif_chan_")    or d.startswith("notif_check_")
+            or d.startswith("notif_chkno_")):
+
+        # ─── دالة مساعدة: إرسال رسالة الشكر وتسليم الملف ────────────
+        async def _thanks_and_deliver(bid_str_v, chat_id_v):
+            record_channel_subscription(uid)
+            clear_pending_notif(uid)
+            ctx.user_data.pop("sub_no_count", None)
+            try:
+                await ctx.bot.send_message(
+                    chat_id=chat_id_v,
+                    text="✅ *شكراً لك!*\n\nيمكنك الآن الاستمرار في التصفح.",
+                    parse_mode="Markdown",
+                    api_kwargs={"message_effect_id": "5046509860389126442"}
+                )
+            except Exception:
+                try:
+                    await ctx.bot.send_message(
+                        chat_id=chat_id_v,
+                        text="✅ *شكراً لك!*\n\nيمكنك الآن الاستمرار في التصفح.",
+                        parse_mode="Markdown"
+                    )
+                except Exception: pass
+            await deliver_denied_content(ctx.bot, chat_id_v, bid_str_v)
+
+        # ─── دالة مساعدة: إرسال "ها اشتركت؟" مع زريّ اي/لا ─────────
+        async def _send_check_msg(bid_str_v, chat_id_v):
+            try:
+                sent = await ctx.bot.send_message(
+                    chat_id=chat_id_v,
+                    text="ها اشتركت؟ 🙂",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("اي ✅", callback_data=f"notif_check_{bid_str_v}"),
+                        InlineKeyboardButton("لا ❌", callback_data=f"notif_chkno_{bid_str_v}"),
+                    ]])
+                )
+                return sent
+            except Exception:
+                return None
+
+        # ─ "اي" — تحقق من الاشتراك بعد توجيه للقناة ─────────────────
+        if d.startswith("notif_check_") and not d.startswith("notif_chkno_"):
+            bid_str    = d[len("notif_check_"):]
+            sub_status = await is_subscribed(ctx.bot, uid)
+            if sub_status is False:
+                await q.answer("لسا ما اشتركت 😔، اشترك أولاً ثم اضغط اي مجدداً!", show_alert=True)
+                return
+            await q.answer()
+            try: await q.message.delete()
+            except Exception: pass
+            await _thanks_and_deliver(bid_str, q.message.chat_id)
+            return
+
+        # ─ "لا" — إغلاق رسالة "ها اشتركت؟" ──────────────────────────
+        if d.startswith("notif_chkno_"):
+            await q.answer()
+            try: await q.message.delete()
+            except Exception: pass
+            return
+
+        # ─ زر توجيه للقناة (مرة 3 و4) — فتح القناة + "ها اشتركت؟" ──
+        if d.startswith("notif_chan_"):
+            bid_str = d[len("notif_chan_"):]
+            chan    = get_setting("notif_channel", "").strip()
+            url    = (chan if chan.startswith("http") else f"https://t.me/{chan.lstrip('@')}") if chan else None
+            if url:
+                try: await q.answer(url=url)
+                except Exception: await q.answer()
+            else:
+                await q.answer()
+            chat_id_v = q.message.chat_id
+            try: await q.message.delete()
+            except Exception: pass
+            await _send_check_msg(bid_str, chat_id_v)
+            return
 
         # ─ رفض نهائي صامت — "نعم متأكد" (المرة الثالثة) ────────────
         if d.startswith("notif_decline_"):
             bid_str = d[len("notif_decline_"):]
             await q.answer()
+            chat_id_v = q.message.chat_id
             try: await q.message.delete()
             except Exception: pass
-            await deliver_denied_content(ctx.bot, q.message.chat_id, bid_str)
+            await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
             return
 
         # ─ رفض نهائي غاضب — "كافي لا تلح" (المرة الرابعة) ─────────
         if d.startswith("notif_anger_"):
             bid_str = d[len("notif_anger_"):]
             await q.answer("روح مزاعلين ):", show_alert=True)
+            chat_id_v = q.message.chat_id
             try: await q.message.delete()
             except Exception: pass
-            await deliver_denied_content(ctx.bot, q.message.chat_id, bid_str)
+            await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
             return
 
         # ─ زر "نعم اشتركت" ─────────────────────────────────────────
@@ -84,50 +161,51 @@ async def cb_manage(update: Update, ctx):
             no_count = ctx.user_data.get("sub_no_count", 0) + 1
             ctx.user_data["sub_no_count"] = no_count
             url = (chan if chan.startswith("http") else f"https://t.me/{chan.lstrip('@')}") if chan else None
+            chat_id_v = q.message.chat_id
 
-            # ── مرة 1 → منبثقة ──────────────────────────────────────
+            # ── مرة 1 → حذف الرسالة + تسليم الملف (بلا منبثقة) ────
             if no_count == 1:
-                await q.answer("ಥ╭╮ಥ راح ابجي", show_alert=True)
+                await q.answer()
+                try: await q.message.delete()
+                except Exception: pass
+                await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
                 return
 
-            # ── مرة 2 → منبثقة ──────────────────────────────────────
+            # ── مرة 2 → منبثقة + حذف الرسالة + تسليم الملف ─────────
             if no_count == 2:
                 await q.answer("ترا بديت ازعل منك /:", show_alert=True)
+                try: await q.message.delete()
+                except Exception: pass
+                await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
                 return
 
-            # ── مرة 3 → رسالة "متأكد ما تريد تشترك؟" + زرين ────────
+            # ── مرة 3 → "متأكد ما تريد تشترك؟" ─────────────────────
             if no_count == 3:
                 await q.answer()
-                rows = []
+                rows = [[InlineKeyboardButton("نعم متأكد", callback_data=f"notif_decline_{bid_str}")]]
                 if url:
-                    rows.append([InlineKeyboardButton("لا راح اشترك", url=url)])
-                rows.append([
-                    InlineKeyboardButton("نعم متأكد", callback_data=f"notif_decline_{bid_str}"),
-                ])
+                    rows.insert(0, [InlineKeyboardButton("لا راح اشترك", callback_data=f"notif_chan_{bid_str}")])
                 try:
                     await ctx.bot.send_message(
-                        chat_id=q.message.chat_id,
+                        chat_id=chat_id_v,
                         text="متأكد ما تريد تشترك؟",
                         reply_markup=InlineKeyboardMarkup(rows)
                     )
                 except Exception: pass
                 return
 
-            # ── مرة 4 → رسالة "احسك تريد تشترك بس مستحي" + 3 أزرار ─
+            # ── مرة 4 → "احسك تريد تشترك بس مستحي" + 3 أزرار ───────
             if no_count == 4:
                 await q.answer()
-                rows = []
+                rows = [[InlineKeyboardButton("كافي لا تلح", callback_data=f"notif_anger_{bid_str}")]]
                 if url:
-                    rows.append([
-                        InlineKeyboardButton("لا اي وراح اشترك", url=url),
-                        InlineKeyboardButton("لا وراح اشترك",    url=url),
+                    rows.insert(0, [
+                        InlineKeyboardButton("لا بس راح اشترك",   callback_data=f"notif_chan_{bid_str}"),
+                        InlineKeyboardButton("اي وراح اشترك", callback_data=f"notif_chan_{bid_str}"),
                     ])
-                rows.append([
-                    InlineKeyboardButton("كافي لا تلح", callback_data=f"notif_anger_{bid_str}"),
-                ])
                 try:
                     await ctx.bot.send_message(
-                        chat_id=q.message.chat_id,
+                        chat_id=chat_id_v,
                         text="احسك تريد تشترك بس مستحي 🙃",
                         reply_markup=InlineKeyboardMarkup(rows)
                     )
@@ -143,19 +221,13 @@ async def cb_manage(update: Update, ctx):
             texts    = [t.strip() for t in texts_raw.split("\n")    if t.strip()]
             if stickers:
                 try:
-                    await ctx.bot.send_sticker(
-                        chat_id=q.message.chat_id,
-                        sticker=_random.choice(stickers)
-                    )
+                    await ctx.bot.send_sticker(chat_id=chat_id_v, sticker=_random.choice(stickers))
                 except Exception: pass
             if texts:
                 try:
-                    await ctx.bot.send_message(
-                        chat_id=q.message.chat_id,
-                        text=_random.choice(texts)
-                    )
+                    await ctx.bot.send_message(chat_id=chat_id_v, text=_random.choice(texts))
                 except Exception: pass
-            await deliver_denied_content(ctx.bot, q.message.chat_id, bid_str)
+            await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
             return
 
         return
