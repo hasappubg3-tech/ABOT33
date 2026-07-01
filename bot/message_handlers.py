@@ -269,6 +269,47 @@ async def on_message(update: Update, ctx):
     if not is_admin(uid) and not check_rate_limit(uid, 'msg'):
         return
 
+    # ── وضع محادثة AI للسادس العلمي ──────────────────────────────
+    if state == "ai_chat_mode":
+        # إذا ضغط زر رجوع أو القائمة الرئيسية → خروج من وضع AI
+        if text in (BTN_BACK, BTN_HOME) or (text in SPECIAL_BTNS and not m.photo):
+            ctx.user_data.pop("state", None)
+            ctx.user_data.pop("ai_chat_bid", None)
+            # معالجة طبيعية بعد الخروج
+        else:
+            wait_msg = await m.reply_text("⏳ جاري الإجابة...")
+            try:
+                if m.photo:
+                    photo = m.photo[-1]
+                    b64, mime = await _download_image_base64(ctx.bot, photo.file_id)
+                    caption = (m.caption or "").strip() or None
+                    answer = await ai_chat_respond(uid, text=caption, image_b64=b64, image_mime=mime)
+                else:
+                    if not text:
+                        await wait_msg.edit_text("⚠️ أرسل نصاً أو صورة.")
+                        return
+                    answer = await ai_chat_respond(uid, text=text)
+            except Exception as e:
+                logging.error(f"ai_chat_mode error: {e}")
+                answer = "⚠️ حدث خطأ أثناء معالجة سؤالك. حاول مرة أخرى."
+            try:
+                await wait_msg.edit_text(
+                    answer,
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🗑 مسح المحادثة", callback_data="ai_chat_clear"),
+                        InlineKeyboardButton("❌ إنهاء", callback_data="ai_chat_end"),
+                    ]])
+                )
+            except Exception:
+                await m.reply_text(
+                    answer,
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🗑 مسح المحادثة", callback_data="ai_chat_clear"),
+                        InlineKeyboardButton("❌ إنهاء", callback_data="ai_chat_end"),
+                    ]])
+                )
+            return
+
     if state == "wait_file_upload":
         if is_bot_button_text(text, pid) and not (m.document or m.photo or m.video or m.audio or m.voice):
             ctx.user_data.pop("state", None)
@@ -1024,6 +1065,23 @@ async def on_message(update: Update, ctx):
         ctx.user_data.pop("state", None)
         await set_panel(ctx, chat_id, "📢 *رسالة الاشتراك*", kb_notif1_settings())
         await m.reply_text(f"✅ تم حفظ نص الحظر: {m.text.strip()}", reply_markup=build_kb(uid, pid))
+        return
+
+    # ── انتظار عدد رسائل ذاكرة AI ────────────────────────────────
+    if state == "wait_ai_memory_count":
+        if not m.text or not m.text.strip().isdigit():
+            await m.reply_text("⚠️ أرسل رقماً صحيحاً بين 1 و20."); return
+        val = int(m.text.strip())
+        if not 1 <= val <= 20:
+            await m.reply_text("⚠️ الرقم يجب أن يكون بين 1 و20."); return
+        ctx.user_data.pop("state", None)
+        set_ai_chat_setting("memory_count", str(val))
+        await set_panel(ctx, chat_id,
+            "🤖 *إعدادات الذكاء الاصطناعي*\n\n"
+            "من هنا تتحكم بمفاتيح Gemini API وإعدادات ذاكرة المحادثة للسادس العلمي.",
+            kb_ai_settings())
+        await m.reply_text(f"✅ تم حفظ عدد الرسائل: *{val}*", parse_mode="Markdown",
+                           reply_markup=build_kb(uid, pid))
         return
 
     # ── انتظار مفاتيح Gemini API ──────────────────────────────────
@@ -2170,6 +2228,30 @@ async def on_message(update: Update, ctx):
                 await set_panel(ctx, chat_id,
                                 f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_مواعيد العداد التنازلي_",
                                 kb_special_quick(b["id"]))
+        elif action == "ai_chat":
+            if is_admin(uid):
+                await set_panel(ctx, chat_id,
+                                f"{btn_id_header(b['id'])}⭐ *{b['label']}*\n_مساعد AI للسادس العلمي_",
+                                kb_special_quick(b["id"]))
+            ctx.user_data["state"] = "ai_chat_mode"
+            ctx.user_data["ai_chat_bid"] = b["id"]
+            memory_on = get_ai_memory_enabled()
+            memory_count = get_ai_memory_count()
+            memory_note = f"🧠 _الذاكرة مفعّلة — يتذكر آخر {memory_count} رسائل_" if memory_on else "🧠 _الذاكرة معطّلة — كل سؤال مستقل_"
+            await m.reply_text(
+                f"🤖 *مساعد الذكاء الاصطناعي — السادس العلمي*\n\n"
+                "أهلاً! أنا مساعدك الذكي المتخصص في مناهج *السادس العلمي العراقي*.\n\n"
+                "📚 *يمكنني مساعدتك في:*\n"
+                "⚗️ الكيمياء • ⚡ الفيزياء • 📐 الرياضيات\n"
+                "🔬 الأحياء • 📖 العربية • 🌍 الإنجليزية • ☪️ التربية الإسلامية\n\n"
+                "✍️ أرسل سؤالك نصاً أو صورة وسأجيبك فوراً!\n\n"
+                f"{memory_note}",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🗑 مسح المحادثة", callback_data="ai_chat_clear"),
+                    InlineKeyboardButton("❌ إنهاء", callback_data="ai_chat_end"),
+                ]])
+            )
         elif action == "grade_calc":
             if is_admin(uid):
                 await set_panel(ctx, chat_id,

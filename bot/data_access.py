@@ -53,6 +53,7 @@ def init_db():
     mdb["quiz_sent_log"].create_index([("user_id", ASCENDING), ("question_id", ASCENDING)], unique=True)
     mdb["comments"].create_index([("target_type", ASCENDING), ("target_id", ASCENDING)])
     mdb["comments"].create_index([("id", ASCENDING)], unique=True)
+    mdb["ai_chat_history"].create_index([("user_id", ASCENDING)], unique=True)
     mdb["comments"].create_index([("target_type", ASCENDING), ("target_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
     mdb["comment_reactions"].create_index([("comment_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
     mdb["countdown_dates"].create_index([("id", ASCENDING)], unique=True)
@@ -1033,6 +1034,39 @@ def kb_add_content_active(bid: int):
     return InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ انتهاء الإضافة", callback_data=f"ci_add_done_{bid}")
     ]])
+
+# ── إعدادات AI Chat ──────────────────────────────────────────────
+def get_ai_chat_setting(key, default=None):
+    return get_setting(f"ai_chat_{key}", default)
+
+def set_ai_chat_setting(key, value):
+    set_setting(f"ai_chat_{key}", value)
+
+def get_ai_memory_enabled():
+    return get_ai_chat_setting("memory_enabled", "1") == "1"
+
+def get_ai_memory_count():
+    try:
+        return int(get_ai_chat_setting("memory_count", "3"))
+    except Exception:
+        return 3
+
+def get_ai_chat_history(uid: int) -> list:
+    doc = _col("ai_chat_history").find_one({"user_id": uid})
+    return doc.get("history", []) if doc else []
+
+def save_ai_chat_history(uid: int, history: list):
+    _col("ai_chat_history").update_one(
+        {"user_id": uid},
+        {"$set": {"user_id": uid, "history": history}},
+        upsert=True
+    )
+
+def clear_ai_chat_history(uid: int):
+    _col("ai_chat_history").delete_one({"user_id": uid})
+
+def init_ai_chat_indexes():
+    _col("ai_chat_history").create_index([("user_id", ASCENDING)], unique=True)
 
 # ── إحصائيات المستخدمين ──────────────────────────────────────────
 def update_user_info(uid, username=None, first_name=None):

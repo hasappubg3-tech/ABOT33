@@ -671,7 +671,7 @@ def kb_settings():
         [InlineKeyboardButton("📡 الإذاعة",                        callback_data="st_broadcast"),
          InlineKeyboardButton("💬 العبارات التحفيزية",              callback_data="st_phrases")],
         [InlineKeyboardButton("⭐ الأزرار المميزة",                 callback_data="st_specials"),
-         InlineKeyboardButton("🔑 مفاتيح API",                    callback_data="st_api_keys")],
+         InlineKeyboardButton("🤖 إعدادات AI",                    callback_data="st_ai_settings")],
     ])
 
 def kb_api_keys():
@@ -683,8 +683,22 @@ def kb_api_keys():
     ]
     if db_count > 0:
         rows.append([InlineKeyboardButton(f"🗑 حذف مفاتيح قاعدة البيانات ({db_count})", callback_data="st_api_keys_clear")])
-    rows.append([InlineKeyboardButton("رجوع", callback_data="st_back")])
+    rows.append([InlineKeyboardButton("رجوع", callback_data="st_ai_settings")])
     return InlineKeyboardMarkup(rows)
+
+def kb_ai_settings():
+    all_keys = get_all_gemini_keys()
+    keys_status = f"✅ {len(all_keys)} مفتاح" if all_keys else "❌ لا يوجد"
+    memory_on = get_ai_memory_enabled()
+    memory_count = get_ai_memory_count()
+    memory_icon = "🟢" if memory_on else "🔴"
+    memory_label = f"{memory_icon} الذاكرة: {'مفعّلة' if memory_on else 'معطّلة'} ({memory_count} رسائل)"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"🔑 مفاتيح API ({keys_status})", callback_data="st_api_keys")],
+        [InlineKeyboardButton(memory_label, callback_data="st_ai_memory_toggle")],
+        [InlineKeyboardButton(f"🔢 عدد الرسائل المحفوظة: {memory_count}", callback_data="st_ai_memory_count")],
+        [InlineKeyboardButton("رجوع", callback_data="st_back")],
+    ])
 
 def kb_notif1_settings():
     notif_on     = get_setting("notif_enabled", "1") == "1"

@@ -21,6 +21,16 @@ def _setup_countdown_feature():
         )
         logging.info("تم تعيين special_action=countdown_mgr للزر #8615.")
 
+def _setup_ai_chat_feature():
+    mdb = get_mongo_db()
+    b = mdb["buttons"].find_one({"id": 8617})
+    if b:
+        mdb["buttons"].update_one(
+            {"id": 8617},
+            {"$set": {"special_action": "ai_chat"}}
+        )
+        logging.info("تم تعيين special_action=ai_chat للزر #8617.")
+
 async def _cd_auto_update_job(ctx):
     if not _CD_WATCH:
         return
@@ -62,6 +72,8 @@ async def post_init(app):
     logging.info("تم إعداد ميزة البومودورو.")
     _setup_grade_calc_feature()
     _setup_countdown_feature()
+    _setup_ai_chat_feature()
+    logging.info("تم إعداد ميزة محادثة AI للسادس العلمي.")
     app.job_queue.run_repeating(
         _cd_auto_update_job,
         interval=60,

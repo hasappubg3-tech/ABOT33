@@ -363,6 +363,132 @@ async def _auto_backup_job(ctx):
     if ch and (not sid.isdigit() or int(sid) != int(ch)):
         await send_backup(ctx.bot, int(ch))
 
+AI_SIXTH_GRADE_SYSTEM_PROMPT = """أنت مساعد تعليمي متخصص حصراً في منهج الصف السادس العلمي العراقي.
+
+مهمتك: الإجابة على أسئلة الطلاب بناءً على مناهج السادس العلمي العراقي فقط، وهي:
+- الفيزياء (السادس العلمي — المنهج العراقي)
+- الكيمياء (السادس العلمي — المنهج العراقي)
+- الأحياء (السادس العلمي — المنهج العراقي)
+- الرياضيات (السادس العلمي — المنهج العراقي)
+- اللغة العربية (السادس العلمي — المنهج العراقي)
+- اللغة الإنجليزية (السادس العلمي — المنهج العراقي)
+- التربية الإسلامية (السادس العلمي — المنهج العراقي)
+
+قواعد مهمة:
+1. أجب دائماً بالطريقة والمصطلحات الموجودة في المنهج العراقي للسادس العلمي.
+2. إذا كان السؤال خارج مناهج السادس العلمي العراقي، قل: "هذا السؤال خارج نطاق منهج السادس العلمي العراقي، لا أستطيع الإجابة عليه هنا."
+3. عند الإجابة على المسائل الحسابية، وضّح الخطوات بشكل واضح كما في المنهج.
+4. استخدم المصطلحات العلمية العربية كما وردت في الكتب المدرسية العراقية.
+5. الإجابات تكون واضحة ومباشرة ومناسبة لمستوى طالب السادس العلمي.
+6. إذا أرسل الطالب صورة، حللها وأجب بناءً على محتواها من منهج السادس العلمي.
+"""
+
+async def ai_chat_respond(uid: int, text: str = None, image_b64: str = None, image_mime: str = None) -> str:
+    """يرسل سؤال المستخدم (نص أو صورة) إلى Gemini مع سياق السادس العلمي والذاكرة."""
+    if not get_all_gemini_keys():
+        return "❌ لا يوجد مفتاح Gemini API. يرجى التواصل مع المشرف لإضافة المفاتيح من إعدادات AI."
+
+    memory_on = get_ai_memory_enabled()
+    memory_count = get_ai_memory_count()
+
+    # بناء محتوى المحادثة
+    if image_b64 and image_mime:
+        # سؤال بصورة — نستخدم Vision
+        parts = []
+        if text:
+            parts.append({"text": f"{AI_SIXTH_GRADE_SYSTEM_PROMPT}\n\nسؤال الطالب: {text}"})
+        else:
+            parts.append({"text": f"{AI_SIXTH_GRADE_SYSTEM_PROMPT}\n\nحلل الصورة وأجب على ما فيها."})
+        parts.append({"inline_data": {"mime_type": image_mime, "data": image_b64}})
+
+        # إضافة الذاكرة في حالة الصور (كنص فقط)
+        history_parts = []
+        if memory_on:
+            history = get_ai_chat_history(uid)
+            for turn in history[-memory_count:]:
+                history_parts.append({"text": f"[محادثة سابقة] الطالب: {turn.get('q','')}\nأنت: {turn.get('a','')}"})
+
+        if history_parts:
+            parts = [{"text": AI_SIXTH_GRADE_SYSTEM_PROMPT + "\n\nسياق المحادثة السابقة:\n" + "\n".join(p["text"] for p in history_parts)}] + parts[1:]
+
+        payload = {"contents": [{"parts": parts}]}
+        try:
+            async with httpx.AsyncClient() as client:
+                answer = await _call_gemini_vision(client, "", [{"data": image_b64, "mime": image_mime}])
+                if not answer:
+                    # محاولة ثانية مع prompt كامل
+                    prompt_text = AI_SIXTH_GRADE_SYSTEM_PROMPT
+                    if memory_on:
+                        history = get_ai_chat_history(uid)
+                        for turn in history[-memory_count:]:
+                            prompt_text += f"\n[سابق] الطالب: {turn.get('q','')}\nأنت: {turn.get('a','')}"
+                    prompt_text += f"\n\nسؤال الطالب: {text or 'حلل الصورة وأجب.'}"
+                    answer = await _call_gemini_vision(client, prompt_text, [{"data": image_b64, "mime": image_mime}])
+        except Exception as e:
+            logging.error(f"ai_chat_respond vision error: {e}")
+            return "⚠️ تعذّر تحليل الصورة. حاول مرة أخرى."
+
+        if not answer:
+            return "⚠️ لم يستجب الذكاء الاصطناعي. حاول مرة أخرى."
+
+        # حفظ في الذاكرة
+        if memory_on:
+            history = get_ai_chat_history(uid)
+            history.append({"q": text or "[صورة]", "a": answer})
+            save_ai_chat_history(uid, history[-memory_count:])
+
+        return answer
+
+    else:
+        # سؤال نصي — نبني المحادثة مع الذاكرة
+        contents = []
+
+        if memory_on:
+            history = get_ai_chat_history(uid)
+            # أول رسالة تحتوي system prompt + المحادثة السابقة
+            system_with_history = AI_SIXTH_GRADE_SYSTEM_PROMPT
+            for turn in history[-memory_count:]:
+                system_with_history += f"\n\n[محادثة سابقة]\nالطالب: {turn.get('q','')}\nأنت: {turn.get('a','')}"
+            contents.append({"parts": [{"text": system_with_history}]})
+        else:
+            contents.append({"parts": [{"text": AI_SIXTH_GRADE_SYSTEM_PROMPT}]})
+
+        contents.append({"parts": [{"text": f"سؤال الطالب: {text}"}]})
+
+        payload = {"contents": contents}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+
+        answer = None
+        async with httpx.AsyncClient() as client:
+            for key in get_all_gemini_keys():
+                try:
+                    resp = await client.post(url, params={"key": key}, json=payload, timeout=60)
+                    if resp.status_code in (429, 503):
+                        logging.warning(f"ai_chat key ...{key[-6:]} rate-limited, trying next...")
+                        continue
+                    resp.raise_for_status()
+                    data = resp.json()
+                    candidate = data.get("candidates", [{}])[0]
+                    finish = candidate.get("finishReason", "")
+                    if finish in ("SAFETY", "RECITATION"):
+                        return "⚠️ السؤال لا يمكن الإجابة عليه بسبب سياسة الاستخدام."
+                    answer = candidate.get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if answer:
+                        break
+                except Exception as e:
+                    logging.warning(f"ai_chat text error key ...{key[-6:]}: {e}")
+
+        if not answer:
+            return "⚠️ جميع مفاتيح Gemini وصلت للحد المسموح أو تعذّر الاتصال. حاول لاحقاً."
+
+        # حفظ في الذاكرة
+        if memory_on:
+            history = get_ai_chat_history(uid)
+            history.append({"q": text, "a": answer})
+            save_ai_chat_history(uid, history[-memory_count:])
+
+        return answer
+
 async def precheckout_callback(update: Update, ctx):
     query = update.pre_checkout_query
     if query.invoice_payload.startswith("stars_donation:"):

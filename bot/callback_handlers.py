@@ -602,6 +602,41 @@ async def cb_manage(update: Update, ctx):
 
         return
 
+    # ── معالجات AI Chat ───────────────────────────────────────────
+    if d == "ai_chat_clear":
+        await q.answer("🗑 تم مسح المحادثة", show_alert=False)
+        clear_ai_chat_history(uid)
+        try:
+            await q.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🗑 مسح المحادثة", callback_data="ai_chat_clear"),
+                InlineKeyboardButton("❌ إنهاء", callback_data="ai_chat_end"),
+            ]]))
+        except Exception:
+            pass
+        await ctx.bot.send_message(
+            chat_id=q.message.chat_id,
+            text="✅ تم مسح سجل المحادثة. أرسل سؤالك الجديد 👇",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🗑 مسح المحادثة", callback_data="ai_chat_clear"),
+                InlineKeyboardButton("❌ إنهاء", callback_data="ai_chat_end"),
+            ]])
+        )
+        return
+
+    if d == "ai_chat_end":
+        await q.answer()
+        ctx.user_data.pop("state", None)
+        ctx.user_data.pop("ai_chat_bid", None)
+        try:
+            await q.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await ctx.bot.send_message(
+            chat_id=q.message.chat_id,
+            text="👋 تم إنهاء المحادثة مع الذكاء الاصطناعي."
+        )
+        return
+
     # ── معالجات إعدادات التقييمات (لجميع المستخدمين) ────────────────
     if d.startswith("rating_"):
         await q.answer()
@@ -1329,6 +1364,42 @@ async def cb_manage(update: Update, ctx):
     if d == "st_back":
         await q.edit_message_text("⚙️ *الاعدادات*", parse_mode="Markdown",
                                   reply_markup=kb_settings())
+        return
+
+    # ── إعدادات AI ────────────────────────────────────────────────
+    if d == "st_ai_settings":
+        await q.edit_message_text(
+            "🤖 *إعدادات الذكاء الاصطناعي*\n\n"
+            "من هنا تتحكم بمفاتيح Gemini API وإعدادات ذاكرة المحادثة للسادس العلمي.",
+            parse_mode="Markdown",
+            reply_markup=kb_ai_settings()
+        )
+        return
+
+    if d == "st_ai_memory_toggle":
+        current = get_ai_memory_enabled()
+        set_ai_chat_setting("memory_enabled", "0" if current else "1")
+        await q.edit_message_text(
+            "🤖 *إعدادات الذكاء الاصطناعي*\n\n"
+            f"{'🟢 تم تفعيل الذاكرة.' if not current else '🔴 تم تعطيل الذاكرة.'}",
+            parse_mode="Markdown",
+            reply_markup=kb_ai_settings()
+        )
+        return
+
+    if d == "st_ai_memory_count":
+        count = get_ai_memory_count()
+        ctx.user_data["state"] = "wait_ai_memory_count"
+        await q.edit_message_text(
+            f"🔢 *عدد الرسائل المحفوظة في الذاكرة*\n\n"
+            f"الحالي: *{count} رسائل*\n\n"
+            "أرسل رقماً بين 1 و20 لتحديد عدد الرسائل التي يتذكرها البوت في كل محادثة.\n"
+            "_مثال: 3 تعني أن البوت يتذكر آخر 3 أسئلة وأجوبة._",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("إلغاء", callback_data="st_ai_settings")
+            ]])
+        )
         return
 
     if d == "st_api_keys":
