@@ -103,6 +103,7 @@ async def cb_manage(update: Update, ctx):
                 await q.answer("روح مزاعلين ):", show_alert=True)
                 if get_notif_no_count(uid) >= 4:
                     set_force_next_notif(uid, True)
+                clear_pending_notif(uid)
                 await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
                 return
             # مشترك ✓
@@ -140,6 +141,7 @@ async def cb_manage(update: Update, ctx):
             chat_id_v = q.message.chat_id
             try: await q.message.delete()
             except Exception: pass
+            clear_pending_notif(uid)
             await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
             return
 
@@ -153,6 +155,7 @@ async def cb_manage(update: Update, ctx):
             if get_notif_no_count(uid) < 4:
                 set_notif_no_count(uid, 4)
             set_force_next_notif(uid, True)
+            clear_pending_notif(uid)
             await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
             return
 
@@ -233,6 +236,7 @@ async def cb_manage(update: Update, ctx):
                 await q.answer("😔", show_alert=True)
                 try: await q.message.delete()
                 except Exception: pass
+                clear_pending_notif(uid)
                 await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
                 return
 
@@ -241,6 +245,7 @@ async def cb_manage(update: Update, ctx):
                 await q.answer("ترا بديت ازعل منك /:", show_alert=True)
                 try: await q.message.delete()
                 except Exception: pass
+                clear_pending_notif(uid)
                 await deliver_denied_content(ctx.bot, chat_id_v, bid_str)
                 return
 
