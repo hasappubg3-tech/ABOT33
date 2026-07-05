@@ -350,7 +350,7 @@ def _build_desc(subject, teacher, grade, year, part='', mlz_type='ملزمة'):
     clean_subject = _strip_emoji(subject).strip()
     subject_with_al = _with_al(clean_subject)
     return (
-        f"⚜️ | {mlz_type} {subject_with_al}{part_str} {year}\n"
+        f"⚜️ | {mlz_type} {subject_with_al}{part_str}\n"
         f"⚜️ | للاستاذ {teacher}\n"
         f"⚜️ | {clean_grade}\n"
         f"⚜️ | سنة الاصدار : {year}\n"
